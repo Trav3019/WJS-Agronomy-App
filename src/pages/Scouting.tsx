@@ -4,15 +4,40 @@ import type {
   CornScoutData, CanolaScoutData, SoyScoutData, WheatScoutData,
   EdibleBeanScoutData, OatsScoutData, PotatoScoutData
 } from '../types';
-import { generateId, saveScoutingReport, deleteScoutingReport } from '../utils/storage';
+import { generateId, saveScoutingReport, deleteScoutingReport, saveSprayApplication, deleteSprayApplication } from '../utils/storage';
 import PhotoCapture from '../components/PhotoCapture';
+import { VARIETIES_BY_CROP } from '../utils/varieties';
 import {
   Plus, X, Trash2, ChevronDown, ChevronRight, MapPin, Image, Eye, Filter
 } from 'lucide-react';
 
 const GeoMap = lazy(() => import('../components/GeoMap'));
 
-const CROPS: CropType[] = ['Corn', 'Canola', 'Soybeans', 'Wheat', 'Edible Beans', 'Oats', 'Potatoes'];
+const CROPS: CropType[] = ['Wheat', 'Oats', 'Canola', 'Potatoes', 'Corn', 'Soybeans', 'Edible Beans'];
+const CROP_ORDER: Record<CropType, number> = {
+  Wheat: 0,
+  Oats: 1,
+  Canola: 2,
+  Potatoes: 3,
+  Corn: 4,
+  Soybeans: 5,
+  'Edible Beans': 6,
+};
+const SPRAY_METHODS = ['Ground Sprayer', 'Air (Aircraft)', 'High-Clearance Sprayer', 'Backpack Sprayer', 'Drone'];
+const PRODUCT_OPTIONS = [
+  'Roundup WeatherMax',
+  'Liberty 280',
+  'Glyphosate 4L',
+  '2,4-D Amine',
+  'Atrazine 500',
+  'Dicamba 2,4-D',
+  'Metribuzin 75DF',
+  'Sharpen 2.7',
+  'Assure II',
+  'Select Max',
+];
+const WEED_OPTIONS = ['Wild Oats', 'Kochia', 'Pigweed', 'Lambsquarters', 'Foxtail', 'Volunteer Canola', 'Thistle', 'Ragweed', 'Cleavers'];
+const CPB_GROWTH_STAGES = ['egg mass', '1st instar', '2nd instar', '3rd instar', '4th instar', 'adult'];
 
 interface Props {
   data: AppData;
@@ -24,180 +49,373 @@ function priorityBadge(p: Priority) {
   return <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${cls}`}>{p}</span>;
 }
 
+function shouldShowAphidField(growthStage?: string) {
+  if (!growthStage) return false;
+  const s = growthStage.toLowerCase().trim();
+  if (!s) return false;
+
+  // Early growth where aphid pressure checks are typically not primary.
+  if (/emerg|seed|cotyledon|v\d|ve|vc|tillering|boot/i.test(s)) return false;
+
+  return /(r\d|flower|flowering|heading|tassel|silk|pod|reproductive|tuber|bulking)/i.test(s);
+}
+
+function SeasonSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-600 mb-3">{title}</h4>
+      {children}
+    </div>
+  );
+}
+
 // ── Crop-specific form sections ──────────────────────────────────────────────
 
-function CornForm({ data, onChange }: { data: Partial<CornScoutData>; onChange: (d: Partial<CornScoutData>) => void }) {
+function CornForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Partial<CornScoutData>; onChange: (d: Partial<CornScoutData>) => void; weedsPresent: string[]; onToggleWeed: (weed: string, checked: boolean) => void }) {
   const set = (k: keyof CornScoutData, v: any) => onChange({ ...data, [k]: v });
+  const showAphids = shouldShowAphidField(data.growthStage);
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <FormNum label="Plant Stand (plants/ac)" value={data.plantStand} onChange={v => set('plantStand', v)} />
-      <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. V6, R2" />
-      <FormNum label="Rootworm Feeding (0-10)" value={data.rootwormFeeding} onChange={v => set('rootwormFeeding', v)} />
-      <FormNum label="Corn Borer (larvae/plant)" value={data.cornBorer} onChange={v => set('cornBorer', v)} />
-      <FormNum label="Aphids (per plant)" value={data.aphids} onChange={v => set('aphids', v)} />
-      <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
-      <div className="col-span-2">
-        <p className="text-xs font-medium text-gray-600 mb-1">Diseases / Issues Present</p>
-        <div className="flex flex-wrap gap-3">
-          {(['grayLeafSpot','northernLeafBlight','commonRust','earMolds','nitrogeneStress','compaction'] as const).map(k => (
-            <Checkbox key={k} label={k.replace(/([A-Z])/g,' $1').trim()} checked={!!data[k]} onChange={v => set(k, v)} />
-          ))}
+    <div className="space-y-3">
+      <SeasonSection title="Early Season">
+        <div className="grid grid-cols-2 gap-3">
+          <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. VE-V8" />
+          <FormNum label="Plant Stand (plants/ac)" value={data.plantStand} onChange={v => set('plantStand', v)} />
+          <FormNum label="Rootworm Feeding (0-10)" value={data.rootwormFeeding} onChange={v => set('rootwormFeeding', v)} />
+          <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
+          <div className="col-span-2">
+            <p className="text-xs font-medium text-gray-600 mb-1">Weeds Present</p>
+            <div className="flex flex-wrap gap-3">
+              {WEED_OPTIONS.map(w => (
+                <Checkbox key={w} label={w} checked={weedsPresent.includes(w)} onChange={checked => onToggleWeed(w, checked)} />
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="col-span-2">
-        <FormTextArea label="Additional Pests / Notes" value={data.additionalPests} onChange={v => set('additionalPests', v)} />
-      </div>
+      </SeasonSection>
+
+      <SeasonSection title="Mid Season">
+        <div className="grid grid-cols-2 gap-3">
+          <FormNum label="Corn Borer (larvae/plant)" value={data.cornBorer} onChange={v => set('cornBorer', v)} />
+          {showAphids && <FormNum label="Aphids (per plant)" value={data.aphids} onChange={v => set('aphids', v)} />}
+        </div>
+      </SeasonSection>
+
+      <SeasonSection title="Late Season">
+        <div>
+          <p className="text-xs font-medium text-gray-600 mb-1">Diseases / Issues Present</p>
+          <div className="flex flex-wrap gap-3">
+            {(['grayLeafSpot','northernLeafBlight','commonRust','earMolds','nitrogeneStress','compaction'] as const).map(k => (
+              <Checkbox key={k} label={k.replace(/([A-Z])/g,' $1').trim()} checked={!!data[k]} onChange={v => set(k, v)} />
+            ))}
+          </div>
+        </div>
+        <div className="mt-3">
+          <FormTextArea label="Additional Pests / Notes" value={data.additionalPests} onChange={v => set('additionalPests', v)} />
+        </div>
+      </SeasonSection>
     </div>
   );
 }
 
-function CanolaForm({ data, onChange }: { data: Partial<CanolaScoutData>; onChange: (d: Partial<CanolaScoutData>) => void }) {
+function CanolaForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Partial<CanolaScoutData>; onChange: (d: Partial<CanolaScoutData>) => void; weedsPresent: string[]; onToggleWeed: (weed: string, checked: boolean) => void }) {
   const set = (k: keyof CanolaScoutData, v: any) => onChange({ ...data, [k]: v });
+  const showAphids = shouldShowAphidField(data.growthStage);
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <FormNum label="Plant Stand (plants/m²)" value={data.plantStand} onChange={v => set('plantStand', v)} />
-      <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. 4-leaf, flowering" />
-      <FormNum label="Flea Beetle Feeding (0-10)" value={data.fleaBeetleFeeding} onChange={v => set('fleaBeetleFeeding', v)} />
-      <FormNum label="Aphids (per plant)" value={data.aphids} onChange={v => set('aphids', v)} />
-      <FormNum label="Bertha (larvae/m²)" value={data.bertha} onChange={v => set('bertha', v)} />
-      <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
-      <div className="col-span-2">
-        <p className="text-xs font-medium text-gray-600 mb-1">Diseases / Issues Present</p>
-        <div className="flex flex-wrap gap-3">
-          {(['sclerotinia','blackleg','clubroot','swede','podShatter'] as const).map(k => (
-            <Checkbox key={k} label={k.replace(/([A-Z])/g,' $1').trim()} checked={!!data[k]} onChange={v => set(k, v)} />
-          ))}
+    <div className="space-y-3">
+      <SeasonSection title="Early Season">
+        <div className="grid grid-cols-2 gap-3">
+          <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. 2-6 leaf" />
+          <FormNum label="Plant Stand (plants/m²)" value={data.plantStand} onChange={v => set('plantStand', v)} />
+          <FormNum label="Flea Beetle Feeding (0-10)" value={data.fleaBeetleFeeding} onChange={v => set('fleaBeetleFeeding', v)} />
+          <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
+          <div className="col-span-2">
+            <p className="text-xs font-medium text-gray-600 mb-1">Weeds Present</p>
+            <div className="flex flex-wrap gap-3">
+              {WEED_OPTIONS.map(w => (
+                <Checkbox key={w} label={w} checked={weedsPresent.includes(w)} onChange={checked => onToggleWeed(w, checked)} />
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="col-span-2">
-        <FormTextArea label="Additional Pests / Notes" value={data.additionalPests} onChange={v => set('additionalPests', v)} />
-      </div>
+      </SeasonSection>
+
+      <SeasonSection title="Mid Season">
+        <div className="grid grid-cols-2 gap-3">
+          <FormNum label="Bertha (larvae/m²)" value={data.bertha} onChange={v => set('bertha', v)} />
+          {showAphids && <FormNum label="Aphids (per plant)" value={data.aphids} onChange={v => set('aphids', v)} />}
+        </div>
+      </SeasonSection>
+
+      <SeasonSection title="Late Season">
+        <div>
+          <p className="text-xs font-medium text-gray-600 mb-1">Diseases / Issues Present</p>
+          <div className="flex flex-wrap gap-3">
+            {(['sclerotinia','blackleg','clubroot','swede','podShatter'] as const).map(k => (
+              <Checkbox key={k} label={k.replace(/([A-Z])/g,' $1').trim()} checked={!!data[k]} onChange={v => set(k, v)} />
+            ))}
+          </div>
+        </div>
+        <div className="mt-3">
+          <FormTextArea label="Additional Pests / Notes" value={data.additionalPests} onChange={v => set('additionalPests', v)} />
+        </div>
+      </SeasonSection>
     </div>
   );
 }
 
-function SoyForm({ data, onChange }: { data: Partial<SoyScoutData>; onChange: (d: Partial<SoyScoutData>) => void }) {
+function SoyForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Partial<SoyScoutData>; onChange: (d: Partial<SoyScoutData>) => void; weedsPresent: string[]; onToggleWeed: (weed: string, checked: boolean) => void }) {
   const set = (k: keyof SoyScoutData, v: any) => onChange({ ...data, [k]: v });
+  const showAphids = shouldShowAphidField(data.growthStage);
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <FormNum label="Plant Stand (plants/ac)" value={data.plantStand} onChange={v => set('plantStand', v)} />
-      <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. V3, R1" />
-      <FormNum label="Aphids (per plant)" value={data.aphids} onChange={v => set('aphids', v)} />
-      <FormNum label="Pod Damage (%)" value={data.podDamage} onChange={v => set('podDamage', v)} />
-      <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
-      <div className="col-span-2">
-        <p className="text-xs font-medium text-gray-600 mb-1">Diseases / Issues Present</p>
-        <div className="flex flex-wrap gap-3">
-          {(['spiderMites','scn','whiteMold','suddenDeathSyndrome','frogeye','stemCanker'] as const).map(k => (
-            <Checkbox key={k} label={k.replace(/([A-Z])/g,' $1').trim()} checked={!!data[k]} onChange={v => set(k, v)} />
-          ))}
+    <div className="space-y-3">
+      <SeasonSection title="Early Season">
+        <div className="grid grid-cols-2 gap-3">
+          <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. VE-V4" />
+          <FormNum label="Plant Stand (plants/ac)" value={data.plantStand} onChange={v => set('plantStand', v)} />
+          <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
+          <div className="col-span-2">
+            <p className="text-xs font-medium text-gray-600 mb-1">Weeds Present</p>
+            <div className="flex flex-wrap gap-3">
+              {WEED_OPTIONS.map(w => (
+                <Checkbox key={w} label={w} checked={weedsPresent.includes(w)} onChange={checked => onToggleWeed(w, checked)} />
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="col-span-2">
-        <FormTextArea label="Additional Pests / Notes" value={data.additionalPests} onChange={v => set('additionalPests', v)} />
-      </div>
+      </SeasonSection>
+
+      <SeasonSection title="Mid Season">
+        <div className="grid grid-cols-2 gap-3">
+          {showAphids && <FormNum label="Aphids (per plant)" value={data.aphids} onChange={v => set('aphids', v)} />}
+          <FormNum label="Pod Damage (%)" value={data.podDamage} onChange={v => set('podDamage', v)} />
+        </div>
+      </SeasonSection>
+
+      <SeasonSection title="Late Season">
+        <div>
+          <p className="text-xs font-medium text-gray-600 mb-1">Diseases / Issues Present</p>
+          <div className="flex flex-wrap gap-3">
+            {(['spiderMites','scn','whiteMold','suddenDeathSyndrome','frogeye','stemCanker'] as const).map(k => (
+              <Checkbox key={k} label={k.replace(/([A-Z])/g,' $1').trim()} checked={!!data[k]} onChange={v => set(k, v)} />
+            ))}
+          </div>
+        </div>
+        <div className="mt-3">
+          <FormTextArea label="Additional Pests / Notes" value={data.additionalPests} onChange={v => set('additionalPests', v)} />
+        </div>
+      </SeasonSection>
     </div>
   );
 }
 
-function WheatForm({ data, onChange }: { data: Partial<WheatScoutData>; onChange: (d: Partial<WheatScoutData>) => void }) {
+function WheatForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Partial<WheatScoutData>; onChange: (d: Partial<WheatScoutData>) => void; weedsPresent: string[]; onToggleWeed: (weed: string, checked: boolean) => void }) {
   const set = (k: keyof WheatScoutData, v: any) => onChange({ ...data, [k]: v });
+  const showAphids = shouldShowAphidField(data.growthStage);
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <FormNum label="Plant Stand (plants/m²)" value={data.plantStand} onChange={v => set('plantStand', v)} />
-      <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. Tillering, Heading" />
-      <FormNum label="Aphids (per plant)" value={data.aphids} onChange={v => set('aphids', v)} />
-      <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
-      <div className="col-span-2">
-        <p className="text-xs font-medium text-gray-600 mb-1">Diseases / Issues Present</p>
-        <div className="flex flex-wrap gap-3">
-          {(['fusariumHead','leafRust','stemRust','stripeRust','powderyMildew','tanSpot','hessianFly','lodging'] as const).map(k => (
-            <Checkbox key={k} label={k.replace(/([A-Z])/g,' $1').trim()} checked={!!data[k]} onChange={v => set(k, v)} />
-          ))}
+    <div className="space-y-3">
+      <SeasonSection title="Early Season">
+        <div className="grid grid-cols-2 gap-3">
+          <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. Tillering" />
+          <FormNum label="Plant Stand (plants/m²)" value={data.plantStand} onChange={v => set('plantStand', v)} />
+          <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
+          <div className="col-span-2">
+            <p className="text-xs font-medium text-gray-600 mb-1">Weeds Present</p>
+            <div className="flex flex-wrap gap-3">
+              {WEED_OPTIONS.map(w => (
+                <Checkbox key={w} label={w} checked={weedsPresent.includes(w)} onChange={checked => onToggleWeed(w, checked)} />
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="col-span-2">
-        <FormTextArea label="Additional Pests / Notes" value={data.additionalPests} onChange={v => set('additionalPests', v)} />
-      </div>
+      </SeasonSection>
+
+      <SeasonSection title="Mid Season">
+        <div className="grid grid-cols-2 gap-3">
+          {showAphids && <FormNum label="Aphids (per plant)" value={data.aphids} onChange={v => set('aphids', v)} />}
+          <div>
+            <p className="text-xs font-medium text-gray-600 mb-1">Insect / Stress Flags</p>
+            <div className="flex flex-wrap gap-3">
+              {(['hessianFly','lodging'] as const).map(k => (
+                <Checkbox key={k} label={k.replace(/([A-Z])/g,' $1').trim()} checked={!!data[k]} onChange={v => set(k, v)} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </SeasonSection>
+
+      <SeasonSection title="Late Season">
+        <div>
+          <p className="text-xs font-medium text-gray-600 mb-1">Diseases / Issues Present</p>
+          <div className="flex flex-wrap gap-3">
+            {(['fusariumHead','leafRust','stemRust','stripeRust','powderyMildew','tanSpot'] as const).map(k => (
+              <Checkbox key={k} label={k.replace(/([A-Z])/g,' $1').trim()} checked={!!data[k]} onChange={v => set(k, v)} />
+            ))}
+          </div>
+        </div>
+        <div className="mt-3">
+          <FormTextArea label="Additional Pests / Notes" value={data.additionalPests} onChange={v => set('additionalPests', v)} />
+        </div>
+      </SeasonSection>
     </div>
   );
 }
 
-function EdibleBeanForm({ data, onChange }: { data: Partial<EdibleBeanScoutData>; onChange: (d: Partial<EdibleBeanScoutData>) => void }) {
+function EdibleBeanForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Partial<EdibleBeanScoutData>; onChange: (d: Partial<EdibleBeanScoutData>) => void; weedsPresent: string[]; onToggleWeed: (weed: string, checked: boolean) => void }) {
   const set = (k: keyof EdibleBeanScoutData, v: any) => onChange({ ...data, [k]: v });
+  const showAphids = shouldShowAphidField(data.growthStage);
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <FormNum label="Plant Stand (plants/ac)" value={data.plantStand} onChange={v => set('plantStand', v)} />
-      <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. V2, R1" />
-      <FormNum label="Bean Leaf Beetle Defoliation (%)" value={data.beanLeafBeetle} onChange={v => set('beanLeafBeetle', v)} />
-      <FormNum label="Aphids (per plant)" value={data.aphids} onChange={v => set('aphids', v)} />
-      <FormSelect label="Pod Fill" value={data.podFill} onChange={v => set('podFill', v)} opts={['poor','fair','good']} />
-      <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
-      <div className="col-span-2">
-        <p className="text-xs font-medium text-gray-600 mb-1">Diseases / Issues Present</p>
-        <div className="flex flex-wrap gap-3">
-          {(['mexicanBeanBeetle','whiteMold','anthracnose','bacterialBlight'] as const).map(k => (
-            <Checkbox key={k} label={k.replace(/([A-Z])/g,' $1').trim()} checked={!!data[k]} onChange={v => set(k, v)} />
-          ))}
+    <div className="space-y-3">
+      <SeasonSection title="Early Season">
+        <div className="grid grid-cols-2 gap-3">
+          <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. V2" />
+          <FormNum label="Plant Stand (plants/ac)" value={data.plantStand} onChange={v => set('plantStand', v)} />
+          <FormNum label="Bean Leaf Beetle Defoliation (%)" value={data.beanLeafBeetle} onChange={v => set('beanLeafBeetle', v)} />
+          <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
+          <div className="col-span-2">
+            <p className="text-xs font-medium text-gray-600 mb-1">Weeds Present</p>
+            <div className="flex flex-wrap gap-3">
+              {WEED_OPTIONS.map(w => (
+                <Checkbox key={w} label={w} checked={weedsPresent.includes(w)} onChange={checked => onToggleWeed(w, checked)} />
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="col-span-2">
-        <FormTextArea label="Additional Pests / Notes" value={data.additionalPests} onChange={v => set('additionalPests', v)} />
-      </div>
+      </SeasonSection>
+
+      <SeasonSection title="Mid Season">
+        <div className="grid grid-cols-2 gap-3">
+          {showAphids && <FormNum label="Aphids (per plant)" value={data.aphids} onChange={v => set('aphids', v)} />}
+          <FormSelect label="Pod Fill" value={data.podFill} onChange={v => set('podFill', v)} opts={['poor','fair','good']} />
+        </div>
+      </SeasonSection>
+
+      <SeasonSection title="Late Season">
+        <div>
+          <p className="text-xs font-medium text-gray-600 mb-1">Diseases / Issues Present</p>
+          <div className="flex flex-wrap gap-3">
+            {(['mexicanBeanBeetle','whiteMold','anthracnose','bacterialBlight'] as const).map(k => (
+              <Checkbox key={k} label={k.replace(/([A-Z])/g,' $1').trim()} checked={!!data[k]} onChange={v => set(k, v)} />
+            ))}
+          </div>
+        </div>
+        <div className="mt-3">
+          <FormTextArea label="Additional Pests / Notes" value={data.additionalPests} onChange={v => set('additionalPests', v)} />
+        </div>
+      </SeasonSection>
     </div>
   );
 }
 
-function OatsForm({ data, onChange }: { data: Partial<OatsScoutData>; onChange: (d: Partial<OatsScoutData>) => void }) {
+function OatsForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Partial<OatsScoutData>; onChange: (d: Partial<OatsScoutData>) => void; weedsPresent: string[]; onToggleWeed: (weed: string, checked: boolean) => void }) {
   const set = (k: keyof OatsScoutData, v: any) => onChange({ ...data, [k]: v });
+  const showAphids = shouldShowAphidField(data.growthStage);
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <FormNum label="Plant Stand (plants/m²)" value={data.plantStand} onChange={v => set('plantStand', v)} />
-      <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. Tillering, Boot" />
-      <FormNum label="Aphids (per plant)" value={data.aphids} onChange={v => set('aphids', v)} />
-      <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
-      <div className="col-span-2">
-        <p className="text-xs font-medium text-gray-600 mb-1">Diseases / Issues Present</p>
-        <div className="flex flex-wrap gap-3">
-          {(['crownRust','stemRust','barleyYellowDwarf','thrips','lodging','headSmut'] as const).map(k => (
-            <Checkbox key={k} label={k.replace(/([A-Z])/g,' $1').trim()} checked={!!data[k]} onChange={v => set(k, v)} />
-          ))}
+    <div className="space-y-3">
+      <SeasonSection title="Early Season">
+        <div className="grid grid-cols-2 gap-3">
+          <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. Tillering" />
+          <FormNum label="Plant Stand (plants/m²)" value={data.plantStand} onChange={v => set('plantStand', v)} />
+          <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
+          <div className="col-span-2">
+            <p className="text-xs font-medium text-gray-600 mb-1">Weeds Present</p>
+            <div className="flex flex-wrap gap-3">
+              {WEED_OPTIONS.map(w => (
+                <Checkbox key={w} label={w} checked={weedsPresent.includes(w)} onChange={checked => onToggleWeed(w, checked)} />
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="col-span-2">
-        <FormTextArea label="Additional Pests / Notes" value={data.additionalPests} onChange={v => set('additionalPests', v)} />
-      </div>
+      </SeasonSection>
+
+      <SeasonSection title="Mid Season">
+        <div className="grid grid-cols-2 gap-3">
+          {showAphids && <FormNum label="Aphids (per plant)" value={data.aphids} onChange={v => set('aphids', v)} />}
+          <div>
+            <p className="text-xs font-medium text-gray-600 mb-1">Insect / Stress Flags</p>
+            <div className="flex flex-wrap gap-3">
+              {(['thrips','lodging'] as const).map(k => (
+                <Checkbox key={k} label={k.replace(/([A-Z])/g,' $1').trim()} checked={!!data[k]} onChange={v => set(k, v)} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </SeasonSection>
+
+      <SeasonSection title="Late Season">
+        <div>
+          <p className="text-xs font-medium text-gray-600 mb-1">Diseases / Issues Present</p>
+          <div className="flex flex-wrap gap-3">
+            {(['crownRust','stemRust','barleyYellowDwarf','headSmut'] as const).map(k => (
+              <Checkbox key={k} label={k.replace(/([A-Z])/g,' $1').trim()} checked={!!data[k]} onChange={v => set(k, v)} />
+            ))}
+          </div>
+        </div>
+        <div className="mt-3">
+          <FormTextArea label="Additional Pests / Notes" value={data.additionalPests} onChange={v => set('additionalPests', v)} />
+        </div>
+      </SeasonSection>
     </div>
   );
 }
 
-function PotatoForm({ data, onChange }: { data: Partial<PotatoScoutData>; onChange: (d: Partial<PotatoScoutData>) => void }) {
+function PotatoForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Partial<PotatoScoutData>; onChange: (d: Partial<PotatoScoutData>) => void; weedsPresent: string[]; onToggleWeed: (weed: string, checked: boolean) => void }) {
   const set = (k: keyof PotatoScoutData, v: any) => onChange({ ...data, [k]: v });
+  const showAphids = shouldShowAphidField(data.growthStage);
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <FormNum label="Plant Stand (plants/100m)" value={data.plantStand} onChange={v => set('plantStand', v)} />
-      <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. Emergence, Tuber Init." />
-      <FormNum label="Avg Stems per Plant" value={data.avgStemsPerPlant} onChange={v => set('avgStemsPerPlant', v)} step={0.1} />
-      <FormNum label="Avg Tubers per Stem" value={data.avgTubersPerStem} onChange={v => set('avgTubersPerStem', v)} step={0.1} />
-      <FormNum label="Seed Rot (% plants affected)" value={data.seedRot} onChange={v => set('seedRot', v)} />
-      <FormNum label="CPB Larvae (per plant)" value={data.coloradoPotatoBeetle} onChange={v => set('coloradoPotatoBeetle', v)} step={0.1} />
-      <FormNum label="Aphids (per leaf)" value={data.aphids} onChange={v => set('aphids', v)} />
-      <FormNum label="Blackleg (% plants)" value={data.blackleg} onChange={v => set('blackleg', v)} />
-      <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
-      <FormSelect label="Soil Moisture" value={data.soilMoisture} onChange={v => set('soilMoisture', v)} opts={['dry','adequate','saturated']} />
-      <FormSelect label="Haulm Status" value={data.haulm} onChange={v => set('haulm', v)} opts={['green','yellowing','dying']} />
-      <FormText label="Irrigation Status" value={data.irrigationStatus} onChange={v => set('irrigationStatus', v)} placeholder="e.g. Running, Off" />
-      <div className="col-span-2">
-        <p className="text-xs font-medium text-gray-600 mb-1">Diseases / Issues Present</p>
-        <div className="flex flex-wrap gap-3">
-          {(['earlyBlight','lateBlight','verticilliumWilt','virusSymptoms'] as const).map(k => (
-            <Checkbox key={k} label={k.replace(/([A-Z])/g,' $1').trim()} checked={!!data[k]} onChange={v => set(k, v)} />
-          ))}
+    <div className="space-y-3">
+      <SeasonSection title="Early Season">
+        <div className="grid grid-cols-2 gap-3">
+          <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. Emergence" />
+          <FormNum label="Plant Stand (plants/100m)" value={data.plantStand} onChange={v => set('plantStand', v)} />
+          <FormNum label="Seed Rot (% plants affected)" value={data.seedRot} onChange={v => set('seedRot', v)} />
+          <FormNum label="Blackleg (% plants)" value={data.blackleg} onChange={v => set('blackleg', v)} />
+          <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
+          <div className="col-span-2">
+            <p className="text-xs font-medium text-gray-600 mb-1">Weeds Present</p>
+            <div className="flex flex-wrap gap-3">
+              {WEED_OPTIONS.map(w => (
+                <Checkbox key={w} label={w} checked={weedsPresent.includes(w)} onChange={checked => onToggleWeed(w, checked)} />
+              ))}
+            </div>
+          </div>
+          <FormSelect label="Soil Moisture" value={data.soilMoisture} onChange={v => set('soilMoisture', v)} opts={['dry','adequate','saturated']} />
         </div>
-      </div>
-      <div className="col-span-2">
-        <FormTextArea label="Additional Pests / Notes" value={data.additionalPests} onChange={v => set('additionalPests', v)} />
-      </div>
+      </SeasonSection>
+
+      <SeasonSection title="Mid Season">
+        <div className="grid grid-cols-2 gap-3">
+          <FormNum label="Avg Stems per Plant" value={data.avgStemsPerPlant} onChange={v => set('avgStemsPerPlant', v)} step={0.1} />
+          <FormNum label="Avg Tubers per Stem" value={data.avgTubersPerStem} onChange={v => set('avgTubersPerStem', v)} step={0.1} />
+          <FormNum label="CPB Larvae (per plant)" value={data.coloradoPotatoBeetle} onChange={v => set('coloradoPotatoBeetle', v)} step={0.1} />
+          <FormSelect label="CPB Growth Stage" value={data.cpbGrowthStage} onChange={v => set('cpbGrowthStage', v)} opts={CPB_GROWTH_STAGES} />
+          {showAphids && <FormNum label="Aphids (per leaf)" value={data.aphids} onChange={v => set('aphids', v)} />}
+          <FormText label="Irrigation Status" value={data.irrigationStatus} onChange={v => set('irrigationStatus', v)} placeholder="e.g. Running, Off" />
+        </div>
+        <div className="mt-3">
+          <p className="text-xs font-medium text-gray-600 mb-1">Additional Pest Flags</p>
+          <div className="flex flex-wrap gap-3">
+            {(['wirewormDamage','potatoLeafhopper'] as const).map(k => (
+              <Checkbox key={k} label={k.replace(/([A-Z])/g,' $1').trim()} checked={!!data[k]} onChange={v => set(k, v)} />
+            ))}
+          </div>
+        </div>
+      </SeasonSection>
+
+      <SeasonSection title="Late Season">
+        <div>
+          <p className="text-xs font-medium text-gray-600 mb-1">Diseases / Issues Present</p>
+          <div className="flex flex-wrap gap-3">
+            {([
+              'earlyBlight','lateBlight','verticilliumWilt','commonScab','rhizoctoniaStemCanker','blackScurf','pinkRot','pythiumLeak','fusariumDryRot','silverScurf','virusSymptoms',
+            ] as const).map(k => (
+              <Checkbox key={k} label={k.replace(/([A-Z])/g,' $1').trim()} checked={!!data[k]} onChange={v => set(k, v)} />
+            ))}
+          </div>
+        </div>
+        <div className="mt-3">
+          <FormTextArea label="Additional Pests / Notes" value={data.additionalPests} onChange={v => set('additionalPests', v)} />
+        </div>
+      </SeasonSection>
     </div>
   );
 }
@@ -276,10 +494,22 @@ export default function Scouting({ data, updateData }: Props) {
   const [photos, setPhotos] = useState<string[]>([]);
   const [priority, setPriority] = useState<Priority>('medium');
   const [notes, setNotes] = useState('');
+  const [weedsPresent, setWeedsPresent] = useState<string[]>([]);
   const [cropData, setCropData] = useState<any>({});
+  const [recordSpray, setRecordSpray] = useState(false);
+  const [sprayChemicals, setSprayChemicals] = useState<Array<{ name: string; rate: string }>>([]);
+  const [sprayMethod, setSprayMethod] = useState(SPRAY_METHODS[0]);
+  const [sprayWaterVolume, setSprayWaterVolume] = useState('');
+  const [sprayNotes, setSprayNotes] = useState('');
 
   const selectedField = data.fields.find(f => f.id === fieldId);
   const cropType = selectedField?.cropType ?? 'Corn';
+  const varietyOptions = VARIETIES_BY_CROP[cropType] ?? [];
+  const orderedFields = [...data.fields].sort((a, b) => {
+    const cropCmp = CROP_ORDER[a.cropType] - CROP_ORDER[b.cropType];
+    if (cropCmp !== 0) return cropCmp;
+    return a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' });
+  });
 
   function resetForm() {
     setFieldId('');
@@ -289,7 +519,13 @@ export default function Scouting({ data, updateData }: Props) {
     setPhotos([]);
     setPriority('medium');
     setNotes('');
+    setWeedsPresent([]);
     setCropData({});
+    setRecordSpray(false);
+    setSprayChemicals([]);
+    setSprayMethod(SPRAY_METHODS[0]);
+    setSprayWaterVolume('');
+    setSprayNotes('');
     setEditingReport(null);
   }
 
@@ -308,7 +544,13 @@ export default function Scouting({ data, updateData }: Props) {
     setPhotos(report.photos);
     setPriority(report.priority);
     setNotes(report.notes);
+    setWeedsPresent(report.weedsPresent ?? []);
     setCropData(report.cropData);
+    setRecordSpray(!!report.sprayRecord);
+    setSprayChemicals(report.sprayRecord?.chemicals ?? []);
+    setSprayMethod(report.sprayRecord?.applicationMethod ?? SPRAY_METHODS[0]);
+    setSprayWaterVolume(report.sprayRecord?.waterVolume ?? '');
+    setSprayNotes(report.sprayRecord?.notes ?? '');
     setShowForm(true);
   }
 
@@ -316,6 +558,13 @@ export default function Scouting({ data, updateData }: Props) {
     if (!fieldId && !editingReport) return;
     const field = selectedField ?? data.fields.find(f => f.fieldNumber === editingReport?.fieldNumber);
     const now = new Date().toISOString();
+    const cleanedChemicals = sprayChemicals
+      .map(c => ({ name: c.name.trim(), rate: c.rate.trim() }))
+      .filter(c => c.name);
+    const shouldSaveSpray = recordSpray && cleanedChemicals.length > 0;
+    const sprayApplicationId = shouldSaveSpray
+      ? (editingReport?.sprayApplicationId ?? generateId())
+      : undefined;
     const report: ScoutingReport = {
       id: editingReport?.id ?? generateId(),
       fieldId: field?.id ?? '',
@@ -325,12 +574,55 @@ export default function Scouting({ data, updateData }: Props) {
       date,
       location,
       photos,
+      weedsPresent,
       priority,
       notes,
+      sprayApplicationId,
+      sprayRecord: shouldSaveSpray ? {
+        chemicals: cleanedChemicals,
+        applicationMethod: sprayMethod,
+        waterVolume: sprayWaterVolume || undefined,
+        notes: sprayNotes || undefined,
+      } : undefined,
       cropData: { ...cropData, crop: field?.cropType ?? editingReport?.cropType },
       createdAt: editingReport?.createdAt ?? now,
     };
-    updateData(prev => saveScoutingReport(prev, report));
+    updateData(prev => {
+      let next = saveScoutingReport(prev, report);
+
+      if (shouldSaveSpray && field && sprayApplicationId) {
+        const existingSpray = prev.sprayApplications.find(a => a.id === sprayApplicationId);
+        next = saveSprayApplication(next, {
+          id: sprayApplicationId,
+          fieldIds: [field.id],
+          fieldNumbers: [field.fieldNumber],
+          plannedDate: date,
+          appliedDate: date,
+          product: cleanedChemicals.map(c => c.name).join(', '),
+          products: cleanedChemicals.map(c => c.name),
+          chemicals: cleanedChemicals,
+          activeIngredient: '',
+          rate: cleanedChemicals.map(c => `${c.name}: ${c.rate ? `${c.rate}L` : 'n/a'}`).join(', '),
+          waterVolume: sprayWaterVolume || undefined,
+          targetPest: '',
+          applicationMethod: sprayMethod,
+          sprayer: '',
+          operator: '',
+          status: 'applied',
+          priority,
+          weatherAtApplication: '',
+          notes: sprayNotes || `Created from scouting report ${report.fieldNumber} on ${date}`,
+          createdAt: existingSpray?.createdAt ?? now,
+          updatedAt: now,
+        });
+      }
+
+      if (!shouldSaveSpray && editingReport?.sprayApplicationId) {
+        next = deleteSprayApplication(next, editingReport.sprayApplicationId);
+      }
+
+      return next;
+    });
     setShowForm(false);
     resetForm();
   }
@@ -347,7 +639,13 @@ export default function Scouting({ data, updateData }: Props) {
       if (filterField && !r.fieldNumber.toLowerCase().includes(filterField.toLowerCase())) return false;
       return true;
     })
-    .sort((a, b) => b.date.localeCompare(a.date));
+    .sort((a, b) => {
+      const dateCmp = b.date.localeCompare(a.date);
+      if (dateCmp !== 0) return dateCmp;
+      const cropCmp = CROP_ORDER[a.cropType] - CROP_ORDER[b.cropType];
+      if (cropCmp !== 0) return cropCmp;
+      return a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' });
+    });
 
   // Map markers for all scouted locations
   const mapMarkers = data.scoutingReports
@@ -462,7 +760,7 @@ export default function Scouting({ data, updateData }: Props) {
                   <label className="form-label">Field * </label>
                   <select className="form-input" value={fieldId} onChange={e => setFieldId(e.target.value)}>
                     <option value="">Select field...</option>
-                    {data.fields.map(f => (
+                    {orderedFields.map(f => (
                       <option key={f.id} value={f.id}>
                         {f.fieldNumber} — {f.cropType} {f.variety ? `(${f.variety})` : ''}
                       </option>
@@ -471,12 +769,10 @@ export default function Scouting({ data, updateData }: Props) {
                 </div>
                 <div>
                   <label className="form-label">Variety</label>
-                  <input
-                    className="form-input"
-                    value={variety}
-                    onChange={e => setVariety(e.target.value)}
-                    placeholder={selectedField?.variety ?? 'Variety override...'}
-                  />
+                  <select className="form-input" value={variety} onChange={e => setVariety(e.target.value)}>
+                    <option value="">Select variety...</option>
+                    {varietyOptions.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
                 </div>
                 <div>
                   <label className="form-label">Date</label>
@@ -510,15 +806,98 @@ export default function Scouting({ data, updateData }: Props) {
                   <h3 className="text-sm font-semibold text-green-800 mb-3 border-b pb-2">
                     {cropType} Scouting Data
                   </h3>
-                  {cropType === 'Corn' && <CornForm data={cropData} onChange={setCropData} />}
-                  {cropType === 'Canola' && <CanolaForm data={cropData} onChange={setCropData} />}
-                  {cropType === 'Soybeans' && <SoyForm data={cropData} onChange={setCropData} />}
-                  {cropType === 'Wheat' && <WheatForm data={cropData} onChange={setCropData} />}
-                  {cropType === 'Edible Beans' && <EdibleBeanForm data={cropData} onChange={setCropData} />}
-                  {cropType === 'Oats' && <OatsForm data={cropData} onChange={setCropData} />}
-                  {cropType === 'Potatoes' && <PotatoForm data={cropData} onChange={setCropData} />}
+                  {cropType === 'Corn' && <CornForm data={cropData} onChange={setCropData} weedsPresent={weedsPresent} onToggleWeed={(weed, checked) => setWeedsPresent(prev => checked ? [...prev, weed] : prev.filter(x => x !== weed))} />}
+                  {cropType === 'Canola' && <CanolaForm data={cropData} onChange={setCropData} weedsPresent={weedsPresent} onToggleWeed={(weed, checked) => setWeedsPresent(prev => checked ? [...prev, weed] : prev.filter(x => x !== weed))} />}
+                  {cropType === 'Soybeans' && <SoyForm data={cropData} onChange={setCropData} weedsPresent={weedsPresent} onToggleWeed={(weed, checked) => setWeedsPresent(prev => checked ? [...prev, weed] : prev.filter(x => x !== weed))} />}
+                  {cropType === 'Wheat' && <WheatForm data={cropData} onChange={setCropData} weedsPresent={weedsPresent} onToggleWeed={(weed, checked) => setWeedsPresent(prev => checked ? [...prev, weed] : prev.filter(x => x !== weed))} />}
+                  {cropType === 'Edible Beans' && <EdibleBeanForm data={cropData} onChange={setCropData} weedsPresent={weedsPresent} onToggleWeed={(weed, checked) => setWeedsPresent(prev => checked ? [...prev, weed] : prev.filter(x => x !== weed))} />}
+                  {cropType === 'Oats' && <OatsForm data={cropData} onChange={setCropData} weedsPresent={weedsPresent} onToggleWeed={(weed, checked) => setWeedsPresent(prev => checked ? [...prev, weed] : prev.filter(x => x !== weed))} />}
+                  {cropType === 'Potatoes' && <PotatoForm data={cropData} onChange={setCropData} weedsPresent={weedsPresent} onToggleWeed={(weed, checked) => setWeedsPresent(prev => checked ? [...prev, weed] : prev.filter(x => x !== weed))} />}
                 </div>
               )}
+
+              {/* Photos */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="form-label mb-0">Spray Record (Save To Spray Plan)</label>
+                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={recordSpray}
+                      onChange={e => setRecordSpray(e.target.checked)}
+                      className="accent-green-600"
+                    />
+                    Include Spray Record
+                  </label>
+                </div>
+
+                {recordSpray && (
+                  <div className="border border-gray-200 rounded-lg p-3 space-y-3 bg-gray-50">
+                    <div className="space-y-2">
+                      {(sprayChemicals ?? []).map((chem, idx) => (
+                        <div key={idx} className="flex gap-2 items-center">
+                          <input
+                            className="form-input flex-1"
+                            value={chem.name}
+                            onChange={e => setSprayChemicals(prev => prev.map((c, i) => i === idx ? { ...c, name: e.target.value } : c))}
+                            placeholder="Chemical name"
+                          />
+                          <div className="relative w-36">
+                            <input
+                              className="form-input pr-7"
+                              value={chem.rate}
+                              onChange={e => setSprayChemicals(prev => prev.map((c, i) => i === idx ? { ...c, rate: e.target.value } : c))}
+                              placeholder="Rate"
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">L</span>
+                          </div>
+                          <button type="button" onClick={() => setSprayChemicals(prev => prev.filter((_, i) => i !== idx))} className="text-red-500 hover:bg-red-50 p-1.5 rounded">
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+
+                      <div className="flex gap-2">
+                        <select className="form-input flex-1" value="" onChange={e => {
+                          const value = e.target.value;
+                          if (!value) return;
+                          setSprayChemicals(prev => [...prev, { name: value, rate: '' }]);
+                        }}>
+                          <option value="">Add from catalog</option>
+                          {PRODUCT_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                        </select>
+                        <button type="button" className="btn-secondary text-xs px-3 whitespace-nowrap" onClick={() => setSprayChemicals(prev => [...prev, { name: '', rate: '' }])}>
+                          + Custom
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="form-label">Application Method</label>
+                        <select className="form-input" value={sprayMethod} onChange={e => setSprayMethod(e.target.value)}>
+                          {SPRAY_METHODS.map(m => <option key={m}>{m}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="form-label">Water Volume</label>
+                        <input className="form-input" value={sprayWaterVolume} onChange={e => setSprayWaterVolume(e.target.value)} placeholder="e.g. 15 gal/ac" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="form-label">Spray Notes</label>
+                      <textarea
+                        className="form-input resize-none"
+                        rows={2}
+                        value={sprayNotes}
+                        onChange={e => setSprayNotes(e.target.value)}
+                        placeholder="Optional spray notes"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Photos */}
               <div>
@@ -569,6 +948,15 @@ export default function Scouting({ data, updateData }: Props) {
                 <div><span className="text-gray-500">Priority:</span> {priorityBadge(viewReport.priority)}</div>
               </div>
 
+              {(viewReport.weedsPresent?.length ?? 0) > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-1">Weeds Present</h3>
+                  <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
+                    {viewReport.weedsPresent?.join(', ')}
+                  </div>
+                </div>
+              )}
+
               {viewReport.location && (
                 <div>
                   <h3 className="text-sm font-semibold text-gray-700 mb-2">Location</h3>
@@ -609,6 +997,23 @@ export default function Scouting({ data, updateData }: Props) {
                 <div>
                   <h3 className="text-sm font-semibold text-gray-700 mb-1">Notes</h3>
                   <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{viewReport.notes}</p>
+                </div>
+              )}
+
+              {viewReport.sprayRecord && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-1">Spray Record</h3>
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-2 text-sm">
+                    {viewReport.sprayRecord.chemicals.map((c, i) => (
+                      <div key={`${c.name}-${i}`} className="flex justify-between">
+                        <span className="font-medium">{c.name}</span>
+                        {c.rate && <span className="text-gray-600">{c.rate} L</span>}
+                      </div>
+                    ))}
+                    <div><span className="text-gray-500">Method:</span> <span className="font-medium">{viewReport.sprayRecord.applicationMethod}</span></div>
+                    {viewReport.sprayRecord.waterVolume && <div><span className="text-gray-500">Water Volume:</span> <span className="font-medium">{viewReport.sprayRecord.waterVolume}</span></div>}
+                    {viewReport.sprayRecord.notes && <div><span className="text-gray-500">Notes:</span> <span className="font-medium">{viewReport.sprayRecord.notes}</span></div>}
+                  </div>
                 </div>
               )}
             </div>
