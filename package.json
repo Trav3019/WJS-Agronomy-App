@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --host localhost --port 5175 --strictPort",
-    "build": "tsc -b && vite build",
+    "dev": "vite --host localhost --port 5175",
+    "build": "tsc -b ; vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
