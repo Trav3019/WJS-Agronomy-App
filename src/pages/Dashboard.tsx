@@ -1,10 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { AppData } from '../types';
 import WeatherWidget from '../components/WeatherWidget';
 import {
   AlertTriangle, ClipboardList, Syringe, Sprout, Rows3, CalendarDays,
-  ChevronRight, CheckCircle, Minus
+  ChevronRight
 } from 'lucide-react';
 import { format, subDays, isWithinInterval, parseISO } from 'date-fns';
 
@@ -18,6 +18,7 @@ const CROP_EMOJI: Record<string, string> = {
 };
 
 export default function Dashboard({ data }: Props) {
+  const [activityFilter, setActivityFilter] = useState<'all' | 'scouting' | 'spray' | 'seeding'>('all');
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
   const weekAgo = subDays(today, 6);
@@ -26,6 +27,7 @@ export default function Dashboard({ data }: Props) {
   const todayScouting = data.scoutingReports.filter(r => r.date === todayStr);
   const todaySpray = data.sprayApplications.filter(a => a.appliedDate === todayStr || a.plannedDate === todayStr);
   const todaySeeding = data.seedingEntries.filter(e => e.seedingDate === todayStr);
+  const hasTodayActivity = todayScouting.length > 0 || todaySpray.length > 0 || todaySeeding.length > 0;
 
   // Weekly scouting
   const weeklyReports = data.scoutingReports.filter(r => {
@@ -34,7 +36,6 @@ export default function Dashboard({ data }: Props) {
   });
 
   // High priority items
-  const highPriorityFields = data.fields.filter(f => f.priority === 'high');
   const highPriorityReports = data.scoutingReports.filter(r => r.priority === 'high').slice(0, 5);
   const pendingHighPrioritySpray = data.sprayApplications.filter(a => a.priority === 'high' && a.status === 'planned');
 
@@ -98,7 +99,7 @@ export default function Dashboard({ data }: Props) {
             </div>
           </div>
         </Link>
-        <Link to="/seeding" className="card hover:shadow-md transition-all hover:border-green-300 group">
+        <Link to="/seeding-plan" className="card hover:shadow-md transition-all hover:border-green-300 group">
           <div className="flex items-center gap-3">
             <div className="bg-amber-100 rounded-lg p-2 group-hover:bg-amber-200 transition-colors">
               <CalendarDays className="h-5 w-5 text-amber-700" />
@@ -121,20 +122,12 @@ export default function Dashboard({ data }: Props) {
         {/* Right: Alerts + Activity */}
         <div className="lg:col-span-2 space-y-4">
           {/* High priority items */}
-          {(highPriorityFields.length > 0 || highPriorityReports.length > 0 || pendingHighPrioritySpray.length > 0) && (
+          {(highPriorityReports.length > 0 || pendingHighPrioritySpray.length > 0) && (
             <div className="card border-red-200 bg-red-50">
               <h2 className="text-base font-semibold text-red-800 flex items-center gap-2 mb-3">
                 <AlertTriangle className="h-5 w-5" /> High Priority Items
               </h2>
               <div className="space-y-2">
-                {highPriorityFields.map(f => (
-                  <Link key={f.id} to="/fields" className="flex items-center gap-2 text-sm text-red-700 hover:text-red-900 bg-red-100 rounded-lg p-2.5">
-                    <Rows3 className="h-4 w-4 shrink-0" />
-                    <span className="font-medium">Field {f.fieldNumber}</span>
-                    <span className="text-red-500">— {f.cropType} {f.variety ? `(${f.variety})` : ''}</span>
-                    <ChevronRight className="h-4 w-4 ml-auto" />
-                  </Link>
-                ))}
                 {highPriorityReports.map(r => (
                   <Link key={r.id} to="/scouting" className="flex items-center gap-2 text-sm text-red-700 hover:text-red-900 bg-red-100 rounded-lg p-2.5">
                     <ClipboardList className="h-4 w-4 shrink-0" />
@@ -157,18 +150,26 @@ export default function Dashboard({ data }: Props) {
 
           {/* Today's activity */}
           <div className="card">
-            <h2 className="text-base font-semibold text-green-800 mb-3">Today's Activity</h2>
-            {todayScouting.length === 0 && todaySpray.length === 0 && todaySeeding.length === 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <h2 className="text-base font-semibold text-green-800">Today's Activity</h2>
+              <div className="flex gap-1">
+                <button onClick={() => setActivityFilter('all')} className={`text-xs px-2 py-1 rounded-full ${activityFilter === 'all' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>All</button>
+                <button onClick={() => setActivityFilter('scouting')} className={`text-xs px-2 py-1 rounded-full ${activityFilter === 'scouting' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>Scouting</button>
+                <button onClick={() => setActivityFilter('spray')} className={`text-xs px-2 py-1 rounded-full ${activityFilter === 'spray' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-600'}`}>Spray</button>
+                <button onClick={() => setActivityFilter('seeding')} className={`text-xs px-2 py-1 rounded-full ${activityFilter === 'seeding' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'}`}>Seeding</button>
+              </div>
+            </div>
+            {!hasTodayActivity ? (
               <p className="text-sm text-gray-400 py-2">No activity recorded today.</p>
             ) : (
               <div className="space-y-2">
-                {todayScouting.map(r => (
+                {(activityFilter === 'all' || activityFilter === 'scouting') && todayScouting.map(r => (
                   <div key={r.id} className="flex items-center gap-2 text-sm bg-blue-50 rounded-lg p-2.5">
                     <ClipboardList className="h-4 w-4 text-blue-600" />
                     <span>Scouted <span className="font-medium">Field {r.fieldNumber}</span> — {r.cropType}</span>
                   </div>
                 ))}
-                {todaySpray.map(a => (
+                {(activityFilter === 'all' || activityFilter === 'spray') && todaySpray.map(a => (
                   <div key={a.id} className={`flex items-center gap-2 text-sm rounded-lg p-2.5 ${a.appliedDate === todayStr ? 'bg-green-50' : 'bg-purple-50'}`}>
                     <Syringe className={`h-4 w-4 ${a.appliedDate === todayStr ? 'text-green-600' : 'text-purple-600'}`} />
                     <span>
@@ -177,12 +178,17 @@ export default function Dashboard({ data }: Props) {
                     </span>
                   </div>
                 ))}
-                {todaySeeding.map(e => (
+                {(activityFilter === 'all' || activityFilter === 'seeding') && todaySeeding.map(e => (
                   <div key={e.id} className="flex items-center gap-2 text-sm bg-amber-50 rounded-lg p-2.5">
                     <CalendarDays className="h-4 w-4 text-amber-600" />
                     <span>Seeded <span className="font-medium">Field {e.fieldNumber}</span> — {e.cropType}</span>
                   </div>
                 ))}
+                {((activityFilter === 'scouting' && todayScouting.length === 0)
+                  || (activityFilter === 'spray' && todaySpray.length === 0)
+                  || (activityFilter === 'seeding' && todaySeeding.length === 0)) && (
+                  <p className="text-sm text-gray-400 py-2">No matching activity for this filter today.</p>
+                )}
               </div>
             )}
           </div>
@@ -308,8 +314,8 @@ export default function Dashboard({ data }: Props) {
                     <div className="text-xs text-gray-500">{r.date} · {r.potatoType}</div>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold text-green-700">{r.estimatedYield.toFixed(0)}</div>
-                    <div className="text-xs text-gray-500">lbs/ac</div>
+                    <div className="font-bold text-green-700">{r.estimatedYield.toFixed(1)}</div>
+                    <div className="text-xs text-gray-500">cwt/ac</div>
                   </div>
                 </div>
               ))}
@@ -321,37 +327,6 @@ export default function Dashboard({ data }: Props) {
         </div>
       </div>
 
-      {/* Field priority overview */}
-      {data.fields.length > 0 && (
-        <div className="card">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-green-800 flex items-center gap-2">
-              <Rows3 className="h-5 w-5" /> Field Priority Overview
-            </h2>
-            <Link to="/fields" className="text-xs text-green-700 hover:text-green-900 flex items-center gap-1">
-              Manage fields <ChevronRight className="h-3 w-3" />
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {data.fields
-              .sort((a, b) => {
-                const order = { high: 0, medium: 1, low: 2 };
-                return order[a.priority] - order[b.priority];
-              })
-              .map(field => (
-                <div key={field.id} className="flex items-center gap-2 bg-gray-50 rounded-lg p-2.5 text-sm">
-                  {field.priority === 'high' ? <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />
-                    : field.priority === 'medium' ? <Minus className="h-4 w-4 text-yellow-500 shrink-0" />
-                    : <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />}
-                  <span className="font-medium text-gray-800">{field.fieldNumber}</span>
-                  <span className="text-gray-500 text-xs">{CROP_EMOJI[field.cropType]} {field.cropType}</span>
-                  {field.acres > 0 && <span className="ml-auto text-xs text-gray-400">{field.acres.toFixed(0)}ac</span>}
-                </div>
-              ))
-            }
-          </div>
-        </div>
-      )}
     </div>
   );
 }
