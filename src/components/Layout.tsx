@@ -1,15 +1,19 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import {
-  LayoutDashboard, Rows3, ClipboardList, Sprout, Syringe, CalendarDays, Leaf
+  LayoutDashboard, Rows3, ClipboardList, Sprout, Syringe, CalendarDays, Leaf, Tractor, Wheat, FileText
 } from 'lucide-react';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/fields', label: 'Fields', icon: Rows3 },
+  { to: '/tillage', label: 'Tillage', icon: Tractor },
+  { to: '/seeding-plan', label: 'Seeding Plan', icon: CalendarDays, end: true },
+  { to: '/seeding', label: 'Seeding', icon: CalendarDays, end: true },
   { to: '/scouting', label: 'Scouting', icon: ClipboardList },
-  { to: '/potato-yield', label: 'Potato Yield', icon: Sprout },
   { to: '/spray', label: 'Spray Plan', icon: Syringe },
-  { to: '/seeding', label: 'Seeding', icon: CalendarDays },
+  { to: '/potato-yield', label: 'Potato Yield', icon: Sprout },
+  { to: '/harvest', label: 'Harvest', icon: Wheat },
+  { to: '/field-summary', label: 'Field Summary', icon: FileText },
+  { to: '/fields', label: 'Fields', icon: Rows3 },
 ];
 
 export default function Layout() {
