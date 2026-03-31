@@ -2,13 +2,16 @@ import { useState } from 'react';
 import type { AppData, PotatoYieldReport, PotatoType } from '../types';
 import { generateId, savePotatoYield, deletePotatoYield } from '../utils/storage';
 import { Sprout, Plus, X, Trash2, Eye, Calculator } from 'lucide-react';
+import PhotoCapture from '../components/PhotoCapture';
+import { VARIETIES_BY_CROP } from '../utils/varieties';
 
 const TABLE_GRADES = ['>2"', '2.25"', '2.5"', '2.75"', '3"', '3.25"', '<3.5"'] as const;
 const PROC_GRADES = ['2oz', '3oz', '4oz', '5oz', '6oz', '7oz', '8oz', '9oz', '10oz', '11oz', '12oz'] as const;
 
-// Estimated yield = (totalWeight × 1537.526) / 100
+// Estimated yield in cwt/ac (100 sq ft sample assumption)
 function calcEstimatedYield(totalWeight: number): number {
-  return (totalWeight * 1537.526) / 100;
+  const lbsPerAcre = (totalWeight * 1537.526) / 100;
+  return lbsPerAcre;
 }
 
 interface Props {
@@ -26,18 +29,20 @@ const emptyReport = (): Omit<PotatoYieldReport, 'id' | 'createdAt' | 'estimatedY
   gradeWeights: {},
   totalTuberCount: 0,
   totalTuberWeight: 0,
-  sampleArea: 100,
+  photos: [],
   notes: '',
 });
 
 export default function PotatoYield({ data, updateData }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [viewReport, setViewReport] = useState<PotatoYieldReport | null>(null);
+  const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyReport());
   const [filterField, setFilterField] = useState('');
 
   const potatoFields = data.fields.filter(f => f.cropType === 'Potatoes');
+  const potatoVarieties = VARIETIES_BY_CROP.Potatoes;
   const grades = form.potatoType === 'table' ? TABLE_GRADES : PROC_GRADES;
 
   function openNew() {
@@ -58,7 +63,7 @@ export default function PotatoYield({ data, updateData }: Props) {
       gradeWeights: report.gradeWeights,
       totalTuberCount: report.totalTuberCount,
       totalTuberWeight: report.totalTuberWeight,
-      sampleArea: report.sampleArea,
+      photos: report.photos ?? [],
       notes: report.notes,
     });
     setShowForm(true);
@@ -121,7 +126,7 @@ export default function PotatoYield({ data, updateData }: Props) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-green-900">Potato Yield Reports</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Sample-based yield estimation — Est. Yield = (Sample Weight × 1537.526) ÷ 100</p>
+          <p className="text-sm text-gray-500 mt-0.5">Sample-based yield estimation — estimated in cwt/ac</p>
         </div>
         <button onClick={openNew} className="btn-primary">
           <Plus className="h-4 w-4" /> New Report
@@ -168,7 +173,7 @@ export default function PotatoYield({ data, updateData }: Props) {
                   </div>
                   <div>
                     <div className="text-xs text-gray-500">Est. Yield</div>
-                    <div className="font-semibold text-green-700">{report.estimatedYield.toFixed(0)} lbs/ac</div>
+                    <div className="font-semibold text-green-700">{report.estimatedYield.toFixed(1)} cwt/ac</div>
                   </div>
                 </div>
               </div>
@@ -219,7 +224,10 @@ export default function PotatoYield({ data, updateData }: Props) {
                 </div>
                 <div>
                   <label className="form-label">Variety</label>
-                  <input className="form-input" value={form.variety} onChange={e => setForm(f => ({ ...f, variety: e.target.value }))} placeholder="Variety name" />
+                  <select className="form-input" value={form.variety} onChange={e => setForm(f => ({ ...f, variety: e.target.value }))}>
+                    <option value="">Select variety...</option>
+                    {potatoVarieties.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
                 </div>
                 <div>
                   <label className="form-label">Date</label>
@@ -231,10 +239,6 @@ export default function PotatoYield({ data, updateData }: Props) {
                     <option value="table">Table Potatoes</option>
                     <option value="processing">Processing Potatoes</option>
                   </select>
-                </div>
-                <div>
-                  <label className="form-label">Sample Area (sq ft)</label>
-                  <input type="number" className="form-input" value={form.sampleArea} onChange={e => setForm(f => ({ ...f, sampleArea: parseFloat(e.target.value) || 100 }))} />
                 </div>
               </div>
 
@@ -252,6 +256,7 @@ export default function PotatoYield({ data, updateData }: Props) {
                         </th>
                         <th className="text-left px-3 py-2 border border-gray-200 font-semibold text-gray-700">Count</th>
                         <th className="text-left px-3 py-2 border border-gray-200 font-semibold text-gray-700">Weight (lbs)</th>
+                        <th className="text-left px-3 py-2 border border-gray-200 font-semibold text-gray-700">% Weight</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -279,6 +284,9 @@ export default function PotatoYield({ data, updateData }: Props) {
                               placeholder="0.0"
                             />
                           </td>
+                          <td className="px-3 py-1.5 border border-gray-200 text-gray-600">
+                            {form.totalTuberWeight > 0 ? (((form.gradeWeights[grade] ?? 0) / form.totalTuberWeight) * 100).toFixed(1) : '0.0'}%
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -287,6 +295,7 @@ export default function PotatoYield({ data, updateData }: Props) {
                         <td className="px-3 py-2 border border-gray-200 text-green-800">TOTALS</td>
                         <td className="px-3 py-2 border border-gray-200 text-green-800">{form.totalTuberCount}</td>
                         <td className="px-3 py-2 border border-gray-200 text-green-800">{form.totalTuberWeight.toFixed(2)} lbs</td>
+                        <td className="px-3 py-2 border border-gray-200 text-green-800">100%</td>
                       </tr>
                     </tfoot>
                   </table>
@@ -300,19 +309,21 @@ export default function PotatoYield({ data, updateData }: Props) {
                   <div>
                     <div className="text-sm text-green-700 font-medium">Estimated Yield</div>
                     <div className="text-3xl font-bold text-green-800">
-                      {estimatedYield.toFixed(0)} <span className="text-lg font-normal">lbs/acre</span>
-                    </div>
-                    <div className="text-xs text-green-600 mt-0.5">
-                      = ({form.totalTuberWeight.toFixed(2)} lbs × 1537.526) ÷ {form.sampleArea} sq ft
+                      {estimatedYield.toFixed(1)} <span className="text-lg font-normal">cwt/acre</span>
                     </div>
                     {estimatedYield > 0 && (
                       <div className="text-sm text-green-700 mt-1">
-                        ≈ {(estimatedYield / 2000).toFixed(2)} tons/acre &nbsp;|&nbsp;
-                        ≈ {(estimatedYield / 100).toFixed(0)} cwt/acre
+                        ≈ {(estimatedYield / 20).toFixed(2)} tons/acre &nbsp;|&nbsp;
+                        ≈ {(estimatedYield * 100).toFixed(0)} lbs/acre
                       </div>
                     )}
                   </div>
                 </div>
+              </div>
+
+              <div>
+                <label className="form-label">Photos</label>
+                <PhotoCapture photos={form.photos ?? []} onChange={photos => setForm(f => ({ ...f, photos }))} maxPhotos={6} />
               </div>
 
               {/* Notes */}
@@ -400,13 +411,30 @@ export default function PotatoYield({ data, updateData }: Props) {
               <div className="bg-green-50 rounded-xl p-4 border border-green-200 text-center">
                 <div className="text-sm text-green-700 font-medium">Estimated Yield</div>
                 <div className="text-4xl font-bold text-green-800 my-1">
-                  {viewReport.estimatedYield.toFixed(0)} lbs/acre
+                  {viewReport.estimatedYield.toFixed(1)} cwt/acre
                 </div>
                 <div className="text-sm text-green-600">
-                  ≈ {(viewReport.estimatedYield / 2000).toFixed(2)} tons/ac &nbsp;|&nbsp;
-                  ≈ {(viewReport.estimatedYield / 100).toFixed(0)} cwt/ac
+                  ≈ {(viewReport.estimatedYield / 20).toFixed(2)} tons/ac &nbsp;|&nbsp;
+                  ≈ {(viewReport.estimatedYield * 100).toFixed(0)} lbs/ac
                 </div>
               </div>
+
+              {(viewReport.photos?.length ?? 0) > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Photos ({viewReport.photos?.length ?? 0})</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {(viewReport.photos ?? []).map((photo, i) => (
+                      <img
+                        key={`${viewReport.id}-photo-${i}`}
+                        src={photo}
+                        alt={`Yield report photo ${i + 1}`}
+                        className="photo-thumbnail cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => setPreviewPhoto(photo)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {viewReport.notes && (
                 <div>
@@ -423,6 +451,17 @@ export default function PotatoYield({ data, updateData }: Props) {
                 Edit
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {previewPhoto && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[9999] p-4" onClick={() => setPreviewPhoto(null)}>
+          <div className="relative max-w-3xl max-h-full">
+            <img src={previewPhoto} alt="Yield report preview" className="max-w-full max-h-[85vh] rounded-lg object-contain" />
+            <button className="absolute top-2 right-2 bg-white rounded-full p-1 text-gray-800 hover:bg-gray-100" onClick={() => setPreviewPhoto(null)}>
+              <X className="h-5 w-5" />
+            </button>
           </div>
         </div>
       )}
