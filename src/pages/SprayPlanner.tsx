@@ -9,6 +9,18 @@ interface Props {
 }
 
 const METHODS = ['Ground Sprayer', 'Air (Aircraft)', 'High-Clearance Sprayer', 'Backpack Sprayer', 'Drone'];
+const PRODUCT_OPTIONS = [
+  'Roundup WeatherMax',
+  'Liberty 280',
+  'Glyphosate 4L',
+  '2,4-D Amine',
+  'Atrazine 500',
+  'Dicamba 2,4-D',
+  'Metribuzin 75DF',
+  'Sharpen 2.7',
+  'Assure II',
+  'Select Max',
+];
 
 const emptyApp = (): Omit<SprayApplication, 'id' | 'createdAt' | 'updatedAt'> => ({
   fieldIds: [],
@@ -16,6 +28,7 @@ const emptyApp = (): Omit<SprayApplication, 'id' | 'createdAt' | 'updatedAt'> =>
   plannedDate: new Date().toISOString().split('T')[0],
   appliedDate: undefined,
   product: '',
+  products: [],
   activeIngredient: '',
   rate: '',
   waterVolume: '',
@@ -68,6 +81,7 @@ export default function SprayPlanner({ data, updateData }: Props) {
       plannedDate: app.plannedDate,
       appliedDate: app.appliedDate,
       product: app.product,
+      products: app.products ?? (app.product ? app.product.split(',').map(p => p.trim()).filter(Boolean) : []),
       activeIngredient: app.activeIngredient ?? '',
       rate: app.rate,
       waterVolume: app.waterVolume ?? '',
@@ -95,11 +109,14 @@ export default function SprayPlanner({ data, updateData }: Props) {
   }
 
   function handleSave() {
-    if (!form.product.trim()) return;
+    const hasProducts = (form.products?.length ?? 0) > 0;
+    if (!hasProducts && !form.product.trim()) return;
     const now = new Date().toISOString();
     const app: SprayApplication = {
       id: editingId ?? generateId(),
       ...form,
+      products: form.products,
+      product: hasProducts ? form.products!.join(', ') : form.product,
       createdAt: editingId
         ? (data.sprayApplications.find(a => a.id === editingId)?.createdAt ?? now)
         : now,
@@ -203,7 +220,7 @@ export default function SprayPlanner({ data, updateData }: Props) {
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 mb-1">
                   <Syringe className="h-4 w-4 text-green-600" />
-                  <span className="font-semibold text-green-900">{app.product}</span>
+                  <span className="font-semibold text-green-900">{(app.products?.length ?? 0) > 0 ? app.products?.join(', ') : app.product}</span>
                   <StatusBadge status={app.status} />
                   {app.priority === 'high' && <AlertTriangle className="h-4 w-4 text-red-500" />}
                 </div>
@@ -272,9 +289,39 @@ export default function SprayPlanner({ data, updateData }: Props) {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="form-label">Product Name *</label>
-                  <input className="form-input" value={form.product} onChange={e => setForm(f => ({ ...f, product: e.target.value }))} placeholder="e.g. Roundup WeatherMax" />
+                <div className="space-y-1">
+                  <label className="form-label">Product(s) *</label>
+                  <div className="flex gap-2">
+                    <select className="form-input flex-1" value="" onChange={e => {
+                      const newProduct = e.target.value;
+                      if (!newProduct) return;
+                      setForm(f => ({
+                        ...f,
+                        products: Array.from(new Set([...(f.products ?? []), newProduct])),
+                      }));
+                    }}>
+                      <option value="">Add from catalog</option>
+                      {PRODUCT_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
+                    <button type="button" className="btn-secondary text-xs px-3" onClick={() => {
+                      const raw = form.product.trim();
+                      if (!raw) return;
+                      const products = Array.from(new Set([...(form.products ?? []), raw]));
+                      setForm(f => ({ ...f, products, product: '' }));
+                    }}>
+                      Add
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {(form.products ?? []).map(prod => (
+                      <span key={prod} className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs flex items-center gap-1">
+                        {prod}
+                        <button type="button" onClick={() => setForm(f => ({ ...f, products: f.products?.filter(p => p !== prod) }))} className="font-bold">×</button>
+                      </span>
+                    ))}
+                    {((form.products ?? []).length === 0) && <span className="text-xs text-gray-500">No products selected yet</span>}
+                  </div>
+                  <input className="form-input mt-2" value={form.product} onChange={e => setForm(f => ({ ...f, product: e.target.value }))} placeholder="Or type custom product then click Add" />
                 </div>
                 <div>
                   <label className="form-label">Active Ingredient</label>
@@ -345,7 +392,7 @@ export default function SprayPlanner({ data, updateData }: Props) {
 
             <div className="flex justify-end gap-3 p-5 border-t bg-gray-50 rounded-b-xl">
               <button onClick={() => setShowForm(false)} className="btn-secondary">Cancel</button>
-              <button onClick={handleSave} className="btn-primary" disabled={!form.product.trim()}>
+              <button onClick={handleSave} className="btn-primary" disabled={!(form.products?.length ?? 0) && !form.product.trim()}>
                 {editingId ? 'Save Changes' : 'Save Application'}
               </button>
             </div>
@@ -358,7 +405,7 @@ export default function SprayPlanner({ data, updateData }: Props) {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b">
-              <h2 className="text-lg font-semibold">{viewApp.product}</h2>
+              <h2 className="text-lg font-semibold">{(viewApp.products?.length ?? 0) > 0 ? viewApp.products.join(', ') : viewApp.product}</h2>
               <button onClick={() => setViewApp(null)} className="text-gray-400 hover:text-gray-600">
                 <X className="h-5 w-5" />
               </button>
