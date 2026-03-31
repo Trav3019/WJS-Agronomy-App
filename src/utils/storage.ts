@@ -1,4 +1,4 @@
-import type { AppData, Field, ScoutingReport, PotatoYieldReport, SprayApplication, SeedingEntry } from '../types';
+import type { AppData, Field, ScoutingReport, PotatoYieldReport, SprayApplication, SeedingEntry, TillageReport, HarvestReport } from '../types';
 
 const STORAGE_KEY = 'wjs-agronomy-data';
 
@@ -8,6 +8,8 @@ const defaultData: AppData = {
   potatoYieldReports: [],
   sprayApplications: [],
   seedingEntries: [],
+  tillageReports: [],
+  harvestReports: [],
 };
 
 export function loadData(): AppData {
@@ -96,4 +98,30 @@ export function saveSeedingEntry(data: AppData, entry: SeedingEntry): AppData {
 
 export function deleteSeedingEntry(data: AppData, id: string): AppData {
   return { ...data, seedingEntries: data.seedingEntries.filter(e => e.id !== id) };
+}
+
+// Tillage reports
+export function saveTillageReport(data: AppData, report: TillageReport): AppData {
+  const idx = data.tillageReports.findIndex(r => r.id === report.id);
+  const updated = idx >= 0
+    ? data.tillageReports.map(r => r.id === report.id ? report : r)
+    : [...data.tillageReports, report];
+  return { ...data, tillageReports: updated };
+}
+
+export function deleteTillageReport(data: AppData, id: string): AppData {
+  return { ...data, tillageReports: data.tillageReports.filter(r => r.id !== id) };
+}
+
+// Harvest reports
+export function saveHarvestReport(data: AppData, report: HarvestReport): AppData {
+  const idx = data.harvestReports.findIndex(r => r.id === report.id);
+  const updated = idx >= 0
+    ? data.harvestReports.map(r => r.id === report.id ? report : r)
+    : [...data.harvestReports, report];
+  return { ...data, harvestReports: updated };
+}
+
+export function deleteHarvestReport(data: AppData, id: string): AppData {
+  return { ...data, harvestReports: data.harvestReports.filter(r => r.id !== id) };
 }
