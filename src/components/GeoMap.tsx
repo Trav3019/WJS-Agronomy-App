@@ -20,6 +20,8 @@ interface Props {
 export default function GeoMap({ currentLocation, markers = [], onLocationCapture, height = '300px', readonly = false }: Props) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
+  const currentMarkerRef = useRef<any>(null);
+  const historyLayerRef = useRef<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
@@ -51,10 +53,12 @@ export default function GeoMap({ currentLocation, markers = [], onLocationCaptur
         map = L.map(mapRef.current).setView(center, 13);
         mapInstanceRef.current = map;
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors',
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          attribution: 'Tiles © Esri',
           maxZoom: 19,
         }).addTo(map);
+
+        historyLayerRef.current = L.layerGroup().addTo(map);
 
         // Add existing markers
         markers.forEach(m => {
@@ -65,15 +69,15 @@ export default function GeoMap({ currentLocation, markers = [], onLocationCaptur
             iconAnchor: [6, 6],
           });
           L.marker([m.location.lat, m.location.lng], { icon: markerIcon })
-            .addTo(map)
+            .addTo(historyLayerRef.current)
             .bindPopup(`<b>${m.label}</b><br/>${m.date}`);
         });
 
         // Add current location marker
         if (currentLocation) {
-          L.marker([currentLocation.lat, currentLocation.lng])
+          currentMarkerRef.current = L.marker([currentLocation.lat, currentLocation.lng])
             .addTo(map)
-            .bindPopup('Current Location')
+            .bindPopup('Saved GPS Location')
             .openPopup();
         }
 
@@ -96,8 +100,40 @@ export default function GeoMap({ currentLocation, markers = [], onLocationCaptur
   // Update map when location changes
   useEffect(() => {
     if (!mapInstanceRef.current || !currentLocation || !mapReady) return;
-    mapInstanceRef.current.setView([currentLocation.lat, currentLocation.lng], 15);
+    const map = mapInstanceRef.current;
+    map.setView([currentLocation.lat, currentLocation.lng], 15);
+
+    if (currentMarkerRef.current) {
+      currentMarkerRef.current.setLatLng([currentLocation.lat, currentLocation.lng]);
+      currentMarkerRef.current.bindPopup('Saved GPS Location');
+    } else {
+      import('leaflet').then(L => {
+        currentMarkerRef.current = L.marker([currentLocation.lat, currentLocation.lng])
+          .addTo(map)
+          .bindPopup('Saved GPS Location')
+          .openPopup();
+      });
+    }
   }, [currentLocation, mapReady]);
+
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || !historyLayerRef.current) return;
+
+    import('leaflet').then(L => {
+      historyLayerRef.current.clearLayers();
+      markers.forEach(m => {
+        const markerIcon = L.divIcon({
+          className: '',
+          html: `<div style="background:${m.color || '#2d6a4f'};width:12px;height:12px;border-radius:50%;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4)"></div>`,
+          iconSize: [12, 12],
+          iconAnchor: [6, 6],
+        });
+        L.marker([m.location.lat, m.location.lng], { icon: markerIcon })
+          .addTo(historyLayerRef.current)
+          .bindPopup(`<b>${m.label}</b><br/>${m.date}`);
+      });
+    });
+  }, [markers, mapReady]);
 
   async function captureLocation() {
     if (!onLocationCapture) return;
