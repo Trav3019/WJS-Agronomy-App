@@ -7,6 +7,7 @@ import { CalendarDays, Plus, X, Trash2, Eye, Cloud, Loader2, MapPin, AlertCircle
 const GeoMap = lazy(() => import('../components/GeoMap'));
 
 const CROPS: CropType[] = ['Corn', 'Canola', 'Soybeans', 'Wheat', 'Edible Beans', 'Oats', 'Potatoes'];
+const SEEDING_DIRECTIONS: Array<'North-South' | 'East-West'> = ['North-South', 'East-West'];
 
 interface Props {
   data: AppData;
@@ -19,6 +20,9 @@ const emptyEntry = (): Omit<SeedingEntry, 'id' | 'createdAt'> => ({
   cropType: 'Corn',
   variety: '',
   seedingDate: new Date().toISOString().split('T')[0],
+  seedingDirection: 'North-South',
+  chemicalMix: '',
+  fieldTrials: '',
   seedingRate: 0,
   rowSpacing: undefined,
   seedDepth: undefined,
@@ -89,6 +93,9 @@ export default function Seeding({ data, updateData }: Props) {
       cropType: entry.cropType,
       variety: entry.variety,
       seedingDate: entry.seedingDate,
+      seedingDirection: entry.seedingDirection ?? 'North-South',
+      chemicalMix: entry.chemicalMix ?? '',
+      fieldTrials: entry.fieldTrials ?? '',
       seedingRate: entry.seedingRate,
       rowSpacing: entry.rowSpacing,
       seedDepth: entry.seedDepth,
@@ -201,9 +208,16 @@ export default function Seeding({ data, updateData }: Props) {
                 </div>
                 <div className="text-xs text-gray-500 space-x-3">
                   <span>Seeded: {entry.seedingDate}</span>
+                  {entry.seedingDirection && <span>Direction: {entry.seedingDirection}</span>}
                   {entry.seedingRate > 0 && <span>Rate: {entry.seedingRate.toLocaleString()} seeds/ac</span>}
                   {entry.rowSpacing && <span>Row: {entry.rowSpacing}"</span>}
                 </div>
+                {(entry.chemicalMix || entry.fieldTrials) && (
+                  <div className="text-xs text-gray-600 mt-1 space-x-3">
+                    {entry.chemicalMix && <span>Chemical Mix: {entry.chemicalMix}</span>}
+                    {entry.fieldTrials && <span>Field Trials: {entry.fieldTrials}</span>}
+                  </div>
+                )}
                 {entry.weather && (
                   <div className="text-xs text-blue-600 mt-1">
                     Weather: {entry.weather.temperature?.toFixed(1)}°C, {entry.weather.precipitation.toFixed(1)}mm rain, {entry.weather.windSpeed.toFixed(0)}km/h wind
@@ -271,6 +285,16 @@ export default function Seeding({ data, updateData }: Props) {
                   />
                 </div>
                 <div>
+                  <label className="form-label">Seeding Direction</label>
+                  <select
+                    className="form-input"
+                    value={form.seedingDirection ?? 'North-South'}
+                    onChange={e => setForm(f => ({ ...f, seedingDirection: e.target.value as 'North-South' | 'East-West' }))}
+                  >
+                    {SEEDING_DIRECTIONS.map(direction => <option key={direction}>{direction}</option>)}
+                  </select>
+                </div>
+                <div>
                   <label className="form-label">Seeding Rate (seeds/ac)</label>
                   <input type="number" className="form-input" value={form.seedingRate || ''} onChange={e => setForm(f => ({ ...f, seedingRate: parseInt(e.target.value) || 0 }))} />
                 </div>
@@ -285,6 +309,24 @@ export default function Seeding({ data, updateData }: Props) {
                 <div>
                   <label className="form-label">Population (seeds/ac)</label>
                   <input type="number" className="form-input" value={form.population ?? ''} onChange={e => setForm(f => ({ ...f, population: parseInt(e.target.value) || undefined }))} />
+                </div>
+                <div>
+                  <label className="form-label">Chemical Mix</label>
+                  <input
+                    className="form-input"
+                    value={form.chemicalMix ?? ''}
+                    onChange={e => setForm(f => ({ ...f, chemicalMix: e.target.value }))}
+                    placeholder="Starter, treatment, inoculant..."
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Field Trials</label>
+                  <input
+                    className="form-input"
+                    value={form.fieldTrials ?? ''}
+                    onChange={e => setForm(f => ({ ...f, fieldTrials: e.target.value }))}
+                    placeholder="Trial name or treatment strip"
+                  />
                 </div>
               </div>
 
@@ -369,10 +411,13 @@ export default function Seeding({ data, updateData }: Props) {
                   ['Crop', viewEntry.cropType],
                   ['Variety', viewEntry.variety || '—'],
                   ['Seeding Date', viewEntry.seedingDate],
+                  ['Seeding Direction', viewEntry.seedingDirection || '—'],
                   ['Seeding Rate', viewEntry.seedingRate > 0 ? `${viewEntry.seedingRate.toLocaleString()} seeds/ac` : '—'],
                   ['Row Spacing', viewEntry.rowSpacing ? `${viewEntry.rowSpacing}"` : '—'],
                   ['Seed Depth', viewEntry.seedDepth ? `${viewEntry.seedDepth}"` : '—'],
                   ['Population', viewEntry.population ? `${viewEntry.population.toLocaleString()} seeds/ac` : '—'],
+                  ['Chemical Mix', viewEntry.chemicalMix || '—'],
+                  ['Field Trials', viewEntry.fieldTrials || '—'],
                 ].map(([k, v]) => (
                   <div key={k as string}>
                     <span className="text-gray-500">{k}:</span>
