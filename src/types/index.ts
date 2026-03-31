@@ -44,10 +44,20 @@ export interface ScoutingReport {
   date: string;
   location?: GeoLocation;
   photos: string[]; // base64 data URLs
+  weedsPresent?: string[];
   priority: Priority;
   notes: string;
+  sprayApplicationId?: string;
+  sprayRecord?: ScoutingSprayRecord;
   cropData: CornScoutData | CanolaScoutData | SoyScoutData | WheatScoutData | EdibleBeanScoutData | OatsScoutData | PotatoScoutData;
   createdAt: string;
+}
+
+export interface ScoutingSprayRecord {
+  chemicals: SprayChemical[];
+  applicationMethod: string;
+  waterVolume?: string;
+  notes?: string;
 }
 
 export interface CornScoutData {
@@ -154,16 +164,25 @@ export interface PotatoScoutData {
   avgTubersPerStem: number;
   seedRot: number; // % plants affected
   coloradoPotatoBeetle: number; // larvae/plant
+  cpbGrowthStage?: string;
   aphids: number; // aphids/leaf
+  wirewormDamage: boolean;
+  potatoLeafhopper: boolean;
   earlyBlight: boolean;
   lateBlight: boolean;
   verticilliumWilt: boolean;
+  commonScab: boolean;
+  rhizoctoniaStemCanker: boolean;
+  blackScurf: boolean;
+  pinkRot: boolean;
+  pythiumLeak: boolean;
+  fusariumDryRot: boolean;
+  silverScurf: boolean;
   blackleg: number; // % plants affected
   virusSymptoms: boolean;
   weedPressure: string;
   irrigationStatus?: string;
   soilMoisture?: string; // dry/adequate/saturated
-  haulm?: string; // green/yellowing/dying
   additionalPests: string;
 }
 
@@ -184,10 +203,15 @@ export interface PotatoYieldReport {
   gradeWeights: Record<string, number>; // grade: weight in lbs
   totalTuberCount: number;
   totalTuberWeight: number; // lbs per 100 sq ft sample
-  estimatedYield: number; // lbs/acre (calculated)
-  sampleArea: number; // sq ft
+  estimatedYield: number; // cwt/acre (calculated)
+  photos?: string[];
   notes: string;
   createdAt: string;
+}
+
+export interface SprayChemical {
+  name: string;
+  rate: string; // in litres
 }
 
 export interface SprayApplication {
@@ -197,7 +221,8 @@ export interface SprayApplication {
   plannedDate: string;
   appliedDate?: string;
   product: string; // legacy field; kept for backward compatibility
-  products?: string[]; // new multi-product field: full product list
+  products?: string[]; // legacy multi-product list
+  chemicals?: SprayChemical[]; // new: each chemical with its own rate
   activeIngredient?: string;
   rate: string;
   waterVolume?: string;
@@ -233,10 +258,36 @@ export interface SeedingEntry {
   createdAt: string;
 }
 
+export interface TillageReport {
+  id: string;
+  fieldId: string;
+  fieldNumber: string;
+  date: string;
+  method: string;
+  depthInches?: number;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface HarvestReport {
+  id: string;
+  fieldId: string;
+  fieldNumber: string;
+  cropType: CropType;
+  date: string;
+  yieldValue?: number;
+  yieldUnit?: string;
+  moisture?: number;
+  notes?: string;
+  createdAt: string;
+}
+
 export interface AppData {
   fields: Field[];
   scoutingReports: ScoutingReport[];
   potatoYieldReports: PotatoYieldReport[];
   sprayApplications: SprayApplication[];
   seedingEntries: SeedingEntry[];
+  tillageReports: TillageReport[];
+  harvestReports: HarvestReport[];
 }
