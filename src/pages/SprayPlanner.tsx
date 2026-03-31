@@ -29,6 +29,7 @@ const emptyApp = (): Omit<SprayApplication, 'id' | 'createdAt' | 'updatedAt'> =>
   appliedDate: undefined,
   product: '',
   products: [],
+  chemicals: [],
   activeIngredient: '',
   rate: '',
   waterVolume: '',
@@ -81,7 +82,11 @@ export default function SprayPlanner({ data, updateData }: Props) {
       plannedDate: app.plannedDate,
       appliedDate: app.appliedDate,
       product: app.product,
-      products: app.products ?? (app.product ? app.product.split(',').map(p => p.trim()).filter(Boolean) : []),
+      products: app.products ?? [],
+      chemicals: app.chemicals ?? (
+        app.products?.map(p => ({ name: p, rate: app.rate ?? '' })) ??
+        (app.product ? app.product.split(',').map(p => ({ name: p.trim(), rate: app.rate ?? '' })) : [])
+      ),
       activeIngredient: app.activeIngredient ?? '',
       rate: app.rate,
       waterVolume: app.waterVolume ?? '',
@@ -109,14 +114,15 @@ export default function SprayPlanner({ data, updateData }: Props) {
   }
 
   function handleSave() {
-    const hasProducts = (form.products?.length ?? 0) > 0;
-    if (!hasProducts && !form.product.trim()) return;
+    const hasChemicals = (form.chemicals?.length ?? 0) > 0;
+    if (!hasChemicals) return;
     const now = new Date().toISOString();
     const app: SprayApplication = {
       id: editingId ?? generateId(),
       ...form,
-      products: form.products,
-      product: hasProducts ? form.products!.join(', ') : form.product,
+      chemicals: form.chemicals,
+      products: form.chemicals?.map(c => c.name),
+      product: form.chemicals?.map(c => c.name).join(', ') ?? '',
       createdAt: editingId
         ? (data.sprayApplications.find(a => a.id === editingId)?.createdAt ?? now)
         : now,
@@ -220,17 +226,18 @@ export default function SprayPlanner({ data, updateData }: Props) {
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 mb-1">
                   <Syringe className="h-4 w-4 text-green-600" />
-                  <span className="font-semibold text-green-900">{(app.products?.length ?? 0) > 0 ? app.products?.join(', ') : app.product}</span>
+                  <span className="font-semibold text-green-900">{(app.chemicals?.length ?? 0) > 0 ? app.chemicals!.map(c => c.name).join(', ') : (app.products?.length ?? 0) > 0 ? app.products?.join(', ') : app.product}</span>
                   <StatusBadge status={app.status} />
                   {app.priority === 'high' && <AlertTriangle className="h-4 w-4 text-red-500" />}
                 </div>
                 <div className="text-xs text-gray-500 space-x-3">
                   <span>Fields: {app.fieldNumbers.length > 0 ? app.fieldNumbers.join(', ') : 'All'}</span>
-                  <span>Planned: {app.plannedDate}</span>
                   {app.appliedDate && <span>Applied: {app.appliedDate}</span>}
                 </div>
                 <div className="text-sm text-gray-600 mt-1">
-                  Target: {app.targetPest} | Rate: {app.rate} | {app.applicationMethod}
+                  {(app.chemicals?.length ?? 0) > 0
+                    ? app.chemicals!.map(c => c.name + (c.rate ? ' — ' + c.rate + 'L' : '')).join(' | ') + ' | ' + app.applicationMethod
+                    : app.applicationMethod}
                 </div>
               </div>
               <div className="flex gap-2 shrink-0 flex-wrap justify-end">
@@ -288,56 +295,61 @@ export default function SprayPlanner({ data, updateData }: Props) {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="form-label">Product(s) *</label>
+              {/* Chemicals & Rates */}
+              <div>
+                <label className="form-label">Chemicals & Rates *</label>
+                <div className="space-y-2">
+                  {(form.chemicals ?? []).map((chem, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <input
+                        className="form-input flex-1"
+                        value={chem.name}
+                        onChange={e => setForm(f => ({
+                          ...f,
+                          chemicals: (f.chemicals ?? []).map((c, i) => i === idx ? { ...c, name: e.target.value } : c),
+                        }))}
+                        placeholder="Chemical name"
+                      />
+                      <div className="relative w-36">
+                        <input
+                          className="form-input pr-7"
+                          value={chem.rate}
+                          onChange={e => setForm(f => ({
+                            ...f,
+                            chemicals: (f.chemicals ?? []).map((c, i) => i === idx ? { ...c, rate: e.target.value } : c),
+                          }))}
+                          placeholder="Rate"
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">L</span>
+                      </div>
+                      <button type="button" onClick={() => setForm(f => ({ ...f, chemicals: (f.chemicals ?? []).filter((_, i) => i !== idx) }))} className="text-red-500 hover:bg-red-50 p-1.5 rounded">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
                   <div className="flex gap-2">
                     <select className="form-input flex-1" value="" onChange={e => {
-                      const newProduct = e.target.value;
-                      if (!newProduct) return;
-                      setForm(f => ({
-                        ...f,
-                        products: Array.from(new Set([...(f.products ?? []), newProduct])),
-                      }));
+                      if (!e.target.value) return;
+                      setForm(f => ({ ...f, chemicals: [...(f.chemicals ?? []), { name: e.target.value, rate: '' }] }));
                     }}>
                       <option value="">Add from catalog</option>
                       {PRODUCT_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
-                    <button type="button" className="btn-secondary text-xs px-3" onClick={() => {
-                      const raw = form.product.trim();
-                      if (!raw) return;
-                      const products = Array.from(new Set([...(form.products ?? []), raw]));
-                      setForm(f => ({ ...f, products, product: '' }));
-                    }}>
-                      Add
+                    <button type="button" className="btn-secondary text-xs px-3 whitespace-nowrap" onClick={() => setForm(f => ({ ...f, chemicals: [...(f.chemicals ?? []), { name: '', rate: '' }] }))}>
+                      + Custom
                     </button>
                   </div>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {(form.products ?? []).map(prod => (
-                      <span key={prod} className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs flex items-center gap-1">
-                        {prod}
-                        <button type="button" onClick={() => setForm(f => ({ ...f, products: f.products?.filter(p => p !== prod) }))} className="font-bold">×</button>
-                      </span>
-                    ))}
-                    {((form.products ?? []).length === 0) && <span className="text-xs text-gray-500">No products selected yet</span>}
-                  </div>
-                  <input className="form-input mt-2" value={form.product} onChange={e => setForm(f => ({ ...f, product: e.target.value }))} placeholder="Or type custom product then click Add" />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="form-label">Active Ingredient</label>
                   <input className="form-input" value={form.activeIngredient} onChange={e => setForm(f => ({ ...f, activeIngredient: e.target.value }))} placeholder="e.g. Glyphosate" />
                 </div>
                 <div>
-                  <label className="form-label">Rate</label>
-                  <input className="form-input" value={form.rate} onChange={e => setForm(f => ({ ...f, rate: e.target.value }))} placeholder="e.g. 1.5 L/ac" />
-                </div>
-                <div>
                   <label className="form-label">Water Volume</label>
                   <input className="form-input" value={form.waterVolume} onChange={e => setForm(f => ({ ...f, waterVolume: e.target.value }))} placeholder="e.g. 15 gal/ac" />
-                </div>
-                <div>
-                  <label className="form-label">Target Pest / Purpose</label>
-                  <input className="form-input" value={form.targetPest} onChange={e => setForm(f => ({ ...f, targetPest: e.target.value }))} placeholder="e.g. Broadleaf weeds" />
                 </div>
                 <div>
                   <label className="form-label">Application Method</label>
@@ -346,28 +358,12 @@ export default function SprayPlanner({ data, updateData }: Props) {
                   </select>
                 </div>
                 <div>
-                  <label className="form-label">Planned Date</label>
-                  <input type="date" className="form-input" value={form.plannedDate} onChange={e => setForm(f => ({ ...f, plannedDate: e.target.value }))} />
-                </div>
-                <div>
                   <label className="form-label">Applied Date</label>
                   <input type="date" className="form-input" value={form.appliedDate ?? ''} onChange={e => setForm(f => ({ ...f, appliedDate: e.target.value || undefined }))} />
                 </div>
                 <div>
                   <label className="form-label">Sprayer / Equipment</label>
                   <input className="form-input" value={form.sprayer} onChange={e => setForm(f => ({ ...f, sprayer: e.target.value }))} placeholder="e.g. Case IH 4440" />
-                </div>
-                <div>
-                  <label className="form-label">Operator</label>
-                  <input className="form-input" value={form.operator} onChange={e => setForm(f => ({ ...f, operator: e.target.value }))} placeholder="Operator name" />
-                </div>
-                <div>
-                  <label className="form-label">Status</label>
-                  <select className="form-input" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as any }))}>
-                    <option value="planned">Planned</option>
-                    <option value="applied">Applied</option>
-                    <option value="cancelled">Cancelled</option>
-                  </select>
                 </div>
                 <div>
                   <label className="form-label">Priority</label>
@@ -392,7 +388,7 @@ export default function SprayPlanner({ data, updateData }: Props) {
 
             <div className="flex justify-end gap-3 p-5 border-t bg-gray-50 rounded-b-xl">
               <button onClick={() => setShowForm(false)} className="btn-secondary">Cancel</button>
-              <button onClick={handleSave} className="btn-primary" disabled={!(form.products?.length ?? 0) && !form.product.trim()}>
+              <button onClick={handleSave} className="btn-primary" disabled={!(form.chemicals?.length ?? 0)}>
                 {editingId ? 'Save Changes' : 'Save Application'}
               </button>
             </div>
@@ -405,7 +401,7 @@ export default function SprayPlanner({ data, updateData }: Props) {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b">
-              <h2 className="text-lg font-semibold">{viewApp.products?.join(', ') || viewApp.product}</h2>
+              <h2 className="text-lg font-semibold">{(viewApp.chemicals?.length ?? 0) > 0 ? viewApp.chemicals!.map(c => c.name).join(', ') : viewApp.products?.join(', ') || viewApp.product}</h2>
               <button onClick={() => setViewApp(null)} className="text-gray-400 hover:text-gray-600">
                 <X className="h-5 w-5" />
               </button>
@@ -415,17 +411,26 @@ export default function SprayPlanner({ data, updateData }: Props) {
                 <StatusBadge status={viewApp.status} />
                 {viewApp.priority === 'high' && <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">High Priority</span>}
               </div>
+              {(viewApp.chemicals?.length ?? 0) > 0 && (
+                <div>
+                  <div className="text-xs text-gray-500 font-medium mb-1 uppercase tracking-wide">Chemicals & Rates</div>
+                  <div className="space-y-1">
+                    {viewApp.chemicals!.map((c, i) => (
+                      <div key={i} className="flex justify-between bg-gray-50 rounded px-3 py-1.5">
+                        <span className="font-medium">{c.name}</span>
+                        {c.rate && <span className="text-gray-600">{c.rate} L</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {[
                 ['Fields', viewApp.fieldNumbers.join(', ') || 'All Fields'],
                 ['Active Ingredient', viewApp.activeIngredient],
-                ['Rate', viewApp.rate],
                 ['Water Volume', viewApp.waterVolume],
-                ['Target', viewApp.targetPest],
                 ['Method', viewApp.applicationMethod],
-                ['Planned Date', viewApp.plannedDate],
                 ['Applied Date', viewApp.appliedDate],
                 ['Sprayer', viewApp.sprayer],
-                ['Operator', viewApp.operator],
                 ['Weather', viewApp.weatherAtApplication],
               ].filter(([, v]) => v).map(([k, v]) => (
                 <div key={k as string} className="flex gap-2">
