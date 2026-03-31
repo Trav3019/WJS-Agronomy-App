@@ -1,0 +1,60 @@
+import type { CropType } from '../types';
+
+export const VARIETIES_BY_CROP: Record<CropType, string[]> = {
+  Corn: [
+    '29-89',
+    '31-85',
+    '33-37',
+    '32-49',
+    '35-29',
+    '81-18',
+    '28-25',
+    '36-48',
+    '8588',
+    '82288',
+    '6182',
+    '6278',
+  ],
+  Canola: [
+    '356',
+    '340',
+    '350',
+    '330',
+    '333',
+    'DKC 801LL',
+    'DKC 800LL',
+    'B3901',
+    'B3018',
+  ],
+  Soybeans: [
+    'DEKALB 002',
+    'B006',
+    '003',
+    '005',
+  ],
+  Wheat: [
+    'STARBUCK',
+    'WESTKING',
+  ],
+  'Edible Beans': [
+    'MYSTICS',
+    'VIBRANTS',
+    'ECLIPSE',
+    'Pink Panther',
+    'Wind Breaker',
+  ],
+  Oats: [
+    'DOUGLAS',
+  ],
+  Potatoes: [
+    'Ranger',
+    'Burbank',
+    'Ivory',
+    'Norkotah',
+    'Sangre',
+    'Norland',
+    'Fenway',
+    'Musica',
+    'Campagna',
+  ],
+};
