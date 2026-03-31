@@ -220,6 +220,9 @@ export interface SeedingEntry {
   cropType: CropType;
   variety: string;
   seedingDate: string;
+  seedingDirection?: 'North-South' | 'East-West';
+  chemicalMix?: string;
+  fieldTrials?: string;
   seedingRate: number; // seeds/acre
   rowSpacing?: number; // inches
   seedDepth?: number; // inches
