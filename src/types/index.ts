@@ -196,7 +196,8 @@ export interface SprayApplication {
   fieldNumbers: string[];
   plannedDate: string;
   appliedDate?: string;
-  product: string;
+  product: string; // legacy field; kept for backward compatibility
+  products?: string[]; // new multi-product field: full product list
   activeIngredient?: string;
   rate: string;
   waterVolume?: string;
