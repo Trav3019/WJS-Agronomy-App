@@ -7,6 +7,7 @@ import {
   AlertTriangle, CheckCircle, Minus, Search, X, FileSpreadsheet
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { VARIETIES_BY_CROP } from '../utils/varieties';
 
 const CROPS: CropType[] = ['Corn', 'Canola', 'Soybeans', 'Wheat', 'Edible Beans', 'Oats', 'Potatoes'];
 const PRIORITIES: Priority[] = ['high', 'medium', 'low'];
@@ -54,6 +55,7 @@ export default function Fields({ data, updateData }: Props) {
   const [quickCrop, setQuickCrop] = useState<CropType>('Corn');
   const [quickAcres, setQuickAcres] = useState('');
   const excelRef = useRef<HTMLInputElement>(null);
+  const varietyOptions = VARIETIES_BY_CROP[form.cropType] ?? [];
 
   // Quick add
   function handleQuickAdd() {
@@ -268,12 +270,8 @@ export default function Fields({ data, updateData }: Props) {
             <option value="">All Crops</option>
             {CROPS.map(c => <option key={c}>{c}</option>)}
           </select>
-          <select className="form-input w-36" value={filterPriority} onChange={e => setFilterPriority(e.target.value as Priority | '')}>
-            <option value="">All Priorities</option>
-            {PRIORITIES.map(p => <option key={p} className="capitalize">{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
-          </select>
-          {(search || filterCrop || filterPriority) && (
-            <button onClick={() => { setSearch(''); setFilterCrop(''); setFilterPriority(''); }} className="text-gray-400 hover:text-gray-600">
+          {(search || filterCrop) && (
+            <button onClick={() => { setSearch(''); setFilterCrop(''); }} className="text-gray-400 hover:text-gray-600">
               <X className="h-4 w-4" />
             </button>
           )}
@@ -281,19 +279,8 @@ export default function Fields({ data, updateData }: Props) {
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-        {(['high', 'medium', 'low'] as Priority[]).map(p => {
-          const count = data.fields.filter(f => f.priority === p).length;
-          return (
-            <div key={p} className={`card text-center py-3 ${p === 'high' ? 'border-red-200' : p === 'medium' ? 'border-yellow-200' : 'border-green-200'}`}>
-              <div className="text-2xl font-bold">{count}</div>
-              <div className={`text-xs font-medium capitalize ${p === 'high' ? 'text-red-600' : p === 'medium' ? 'text-yellow-600' : 'text-green-600'}`}>
-                {p} priority
-              </div>
-            </div>
-          );
-        })}
-        <div className="card text-center py-3 col-span-3 sm:col-span-3">
+      <div className="grid grid-cols-1 gap-3">
+        <div className="card text-center py-3">
           <div className="text-2xl font-bold text-green-800">{totalAcres.toFixed(1)}</div>
           <div className="text-xs text-gray-500">Total Filtered Acres</div>
         </div>
@@ -316,20 +303,16 @@ export default function Fields({ data, updateData }: Props) {
                   Acres <SortIcon col="acres" />
                 </button>
               </th>
-              <th className="text-left px-4 py-3">
-                <button className="flex items-center gap-1 font-semibold text-gray-700 hover:text-green-800" onClick={() => toggleSort('priority')}>
-                  Priority <SortIcon col="priority" />
-                </button>
-              </th>
               <th className="text-right px-4 py-3 font-semibold text-gray-700">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-10 text-gray-400">No fields found. Add a field to get started.</td></tr>
+              <tr><td colSpan={5} className="text-center py-10 text-gray-400">No fields found. Add a field to get started.</td></tr>
             ) : filtered.map(field => (
               <tr key={field.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                 <td className="px-4 py-3 font-medium text-green-900">{field.fieldNumber}</td>
+
                 <td className="px-4 py-3">
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${CROP_COLORS[field.cropType]}`}>
                     {field.cropType}
@@ -337,18 +320,6 @@ export default function Fields({ data, updateData }: Props) {
                 </td>
                 <td className="px-4 py-3 text-gray-600 hidden sm:table-cell">{field.variety || '—'}</td>
                 <td className="px-4 py-3 text-gray-600">{field.acres > 0 ? field.acres.toFixed(1) : '—'}</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-1">
-                    <PriorityIcon p={field.priority} />
-                    <select
-                      value={field.priority}
-                      onChange={e => setPriority(field.id, e.target.value as Priority)}
-                      className="text-xs border-0 bg-transparent focus:outline-none cursor-pointer capitalize"
-                    >
-                      {PRIORITIES.map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
-                    </select>
-                  </div>
-                </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-2">
                     <button onClick={() => openEdit(field)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors">
@@ -400,25 +371,24 @@ export default function Fields({ data, updateData }: Props) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="form-label">Crop Type</label>
-                  <select className="form-input" value={form.cropType} onChange={e => setForm(f => ({ ...f, cropType: e.target.value as CropType }))}>
+                  <select className="form-input" value={form.cropType} onChange={e => {
+                    const nextCrop = e.target.value as CropType;
+                    setForm(f => ({
+                      ...f,
+                      cropType: nextCrop,
+                      variety: (VARIETIES_BY_CROP[nextCrop] ?? []).includes(f.variety) ? f.variety : '',
+                    }));
+                  }}>
                     {CROPS.map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="form-label">Variety</label>
-                  <input
-                    className="form-input"
-                    value={form.variety}
-                    onChange={e => setForm(f => ({ ...f, variety: e.target.value }))}
-                    placeholder="Variety name"
-                  />
+                  <select className="form-input" value={form.variety} onChange={e => setForm(f => ({ ...f, variety: e.target.value }))}>
+                    <option value="">Select variety...</option>
+                    {varietyOptions.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
                 </div>
-              </div>
-              <div>
-                <label className="form-label">Priority</label>
-                <select className="form-input" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value as Priority }))}>
-                  {PRIORITIES.map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
-                </select>
               </div>
               <div>
                 <label className="form-label">Notes</label>
