@@ -6,6 +6,10 @@ import Scouting from './pages/Scouting';
 import PotatoYield from './pages/PotatoYield';
 import SprayPlanner from './pages/SprayPlanner';
 import Seeding from './pages/Seeding';
+import SeedingPlan from './pages/SeedingPlan';
+import Tillage from './pages/Tillage';
+import Harvest from './pages/Harvest';
+import FieldSummary from './pages/FieldSummary';
 import { useAppData } from './hooks/useAppData';
 
 function App() {
@@ -20,7 +24,11 @@ function App() {
           <Route path="scouting" element={<Scouting data={data} updateData={updateData} />} />
           <Route path="potato-yield" element={<PotatoYield data={data} updateData={updateData} />} />
           <Route path="spray" element={<SprayPlanner data={data} updateData={updateData} />} />
+          <Route path="seeding-plan" element={<SeedingPlan data={data} updateData={updateData} />} />
           <Route path="seeding" element={<Seeding data={data} updateData={updateData} />} />
+          <Route path="tillage" element={<Tillage data={data} updateData={updateData} />} />
+          <Route path="harvest" element={<Harvest data={data} updateData={updateData} />} />
+          <Route path="field-summary" element={<FieldSummary data={data} />} />
         </Route>
       </Routes>
     </BrowserRouter>
