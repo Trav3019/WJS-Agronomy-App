@@ -2,6 +2,7 @@ import { useState, lazy, Suspense } from 'react';
 import type { AppData, SeedingEntry, CropType, WeatherData } from '../types';
 import { generateId, saveSeedingEntry, deleteSeedingEntry } from '../utils/storage';
 import { getHistoricalWeather } from '../utils/weather';
+import { VARIETIES_BY_CROP } from '../utils/varieties';
 import { CalendarDays, Plus, X, Trash2, Eye, Cloud, Loader2, MapPin, AlertCircle } from 'lucide-react';
 
 const GeoMap = lazy(() => import('../components/GeoMap'));
@@ -77,6 +78,7 @@ export default function Seeding({ data, updateData }: Props) {
   const [loadingWeather, setLoadingWeather] = useState(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
   const [filterCrop, setFilterCrop] = useState<CropType | ''>('');
+  const varietyOptions = VARIETIES_BY_CROP[form.cropType] ?? [];
 
   function openNew() {
     setEditingId(null);
@@ -273,7 +275,10 @@ export default function Seeding({ data, updateData }: Props) {
                 </div>
                 <div>
                   <label className="form-label">Variety</label>
-                  <input className="form-input" value={form.variety} onChange={e => setForm(f => ({ ...f, variety: e.target.value }))} placeholder="Variety name" />
+                  <select className="form-input" value={form.variety} onChange={e => setForm(f => ({ ...f, variety: e.target.value }))}>
+                    <option value="">Select variety...</option>
+                    {varietyOptions.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
                 </div>
                 <div>
                   <label className="form-label">Seeding Date *</label>
