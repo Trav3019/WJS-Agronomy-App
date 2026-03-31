@@ -405,7 +405,7 @@ export default function SprayPlanner({ data, updateData }: Props) {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b">
-              <h2 className="text-lg font-semibold">{(viewApp.products?.length ?? 0) > 0 ? viewApp.products.join(', ') : viewApp.product}</h2>
+              <h2 className="text-lg font-semibold">{viewApp.products?.join(', ') || viewApp.product}</h2>
               <button onClick={() => setViewApp(null)} className="text-gray-400 hover:text-gray-600">
                 <X className="h-5 w-5" />
               </button>
