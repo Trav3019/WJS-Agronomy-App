@@ -28,6 +28,9 @@ export default function Tillage({ data, updateData }: Props) {
   const [viewReport, setViewReport] = useState<TillageReport | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [fieldFilter, setFieldFilter] = useState('');
+  const orderedFields = [...data.fields].sort((a, b) =>
+    a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' })
+  );
   const [form, setForm] = useState({
     fieldId: '',
     date: new Date().toISOString().split('T')[0],
@@ -153,7 +156,7 @@ export default function Tillage({ data, updateData }: Props) {
                   <label className="form-label">Field</label>
                   <select className="form-input" value={form.fieldId} onChange={e => setForm(f => ({ ...f, fieldId: e.target.value }))}>
                     <option value="">Select field...</option>
-                    {data.fields.map(f => <option key={f.id} value={f.id}>{f.fieldNumber} - {f.cropType}</option>)}
+                    {orderedFields.map(f => <option key={f.id} value={f.id}>{f.fieldNumber} - {f.cropType}</option>)}
                   </select>
                 </div>
                 <div>
