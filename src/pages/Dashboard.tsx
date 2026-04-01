@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { AppData } from '../types';
+import type { AppData, ScoutingReport, SprayApplication, SeedingEntry, PotatoYieldReport } from '../types';
 import WeatherWidget from '../components/WeatherWidget';
 import {
-  AlertTriangle, ClipboardList, Syringe, Sprout, Rows3, CalendarDays,
-  ChevronRight
+  ClipboardList, Syringe, Sprout, Rows3, CalendarDays,
+  ChevronRight, X
 } from 'lucide-react';
 import { format, subDays, isWithinInterval, parseISO } from 'date-fns';
 
@@ -19,6 +19,10 @@ const CROP_EMOJI: Record<string, string> = {
 
 export default function Dashboard({ data }: Props) {
   const [activityFilter, setActivityFilter] = useState<'all' | 'scouting' | 'spray' | 'seeding'>('all');
+  const [viewReport, setViewReport] = useState<ScoutingReport | null>(null);
+  const [viewSpray, setViewSpray] = useState<SprayApplication | null>(null);
+  const [viewSeeding, setViewSeeding] = useState<SeedingEntry | null>(null);
+  const [viewYield, setViewYield] = useState<PotatoYieldReport | null>(null);
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
   const weekAgo = subDays(today, 6);
@@ -35,10 +39,6 @@ export default function Dashboard({ data }: Props) {
     catch { return false; }
   });
 
-  // High priority items
-  const highPriorityReports = data.scoutingReports.filter(r => r.priority === 'high').slice(0, 5);
-  const pendingHighPrioritySpray = data.sprayApplications.filter(a => a.priority === 'high' && a.status === 'planned');
-
   // Weekly scouting breakdown by crop
   const weeklyByCrop = useMemo(() => {
     const map: Record<string, number> = {};
@@ -54,6 +54,7 @@ export default function Dashboard({ data }: Props) {
     .slice(0, 3);
 
   return (
+    <>
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-green-900">
@@ -121,33 +122,6 @@ export default function Dashboard({ data }: Props) {
 
         {/* Right: Alerts + Activity */}
         <div className="lg:col-span-2 space-y-4">
-          {/* High priority items */}
-          {(highPriorityReports.length > 0 || pendingHighPrioritySpray.length > 0) && (
-            <div className="card border-red-200 bg-red-50">
-              <h2 className="text-base font-semibold text-red-800 flex items-center gap-2 mb-3">
-                <AlertTriangle className="h-5 w-5" /> High Priority Items
-              </h2>
-              <div className="space-y-2">
-                {highPriorityReports.map(r => (
-                  <Link key={r.id} to="/scouting" className="flex items-center gap-2 text-sm text-red-700 hover:text-red-900 bg-red-100 rounded-lg p-2.5">
-                    <ClipboardList className="h-4 w-4 shrink-0" />
-                    <span className="font-medium">Field {r.fieldNumber}</span>
-                    <span className="text-red-500">— Scouting {r.date}</span>
-                    <ChevronRight className="h-4 w-4 ml-auto" />
-                  </Link>
-                ))}
-                {pendingHighPrioritySpray.map(a => (
-                  <Link key={a.id} to="/spray" className="flex items-center gap-2 text-sm text-red-700 hover:text-red-900 bg-red-100 rounded-lg p-2.5">
-                    <Syringe className="h-4 w-4 shrink-0" />
-                    <span className="font-medium">{a.product}</span>
-                    <span className="text-red-500">— Fields: {a.fieldNumbers.join(', ')}</span>
-                    <ChevronRight className="h-4 w-4 ml-auto" />
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Today's activity */}
           <div className="card">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -164,25 +138,25 @@ export default function Dashboard({ data }: Props) {
             ) : (
               <div className="space-y-2">
                 {(activityFilter === 'all' || activityFilter === 'scouting') && todayScouting.map(r => (
-                  <div key={r.id} className="flex items-center gap-2 text-sm bg-blue-50 rounded-lg p-2.5">
+                  <button key={r.id} onClick={() => setViewReport(r)} className="w-full flex items-center gap-2 text-sm bg-blue-50 rounded-lg p-2.5 text-left hover:bg-blue-100 transition-colors">
                     <ClipboardList className="h-4 w-4 text-blue-600" />
                     <span>Scouted <span className="font-medium">Field {r.fieldNumber}</span> — {r.cropType}</span>
-                  </div>
+                  </button>
                 ))}
                 {(activityFilter === 'all' || activityFilter === 'spray') && todaySpray.map(a => (
-                  <div key={a.id} className={`flex items-center gap-2 text-sm rounded-lg p-2.5 ${a.appliedDate === todayStr ? 'bg-green-50' : 'bg-purple-50'}`}>
+                  <button key={a.id} onClick={() => setViewSpray(a)} className={`w-full text-left flex items-center gap-2 text-sm rounded-lg p-2.5 transition-colors ${a.appliedDate === todayStr ? 'bg-green-50 hover:bg-green-100' : 'bg-purple-50 hover:bg-purple-100'}`}>
                     <Syringe className={`h-4 w-4 ${a.appliedDate === todayStr ? 'text-green-600' : 'text-purple-600'}`} />
                     <span>
                       {a.appliedDate === todayStr ? 'Applied' : 'Planned'}: <span className="font-medium">{a.product}</span>
                       {a.fieldNumbers.length > 0 && ` — Fields: ${a.fieldNumbers.join(', ')}`}
                     </span>
-                  </div>
+                  </button>
                 ))}
                 {(activityFilter === 'all' || activityFilter === 'seeding') && todaySeeding.map(e => (
-                  <div key={e.id} className="flex items-center gap-2 text-sm bg-amber-50 rounded-lg p-2.5">
+                  <button key={e.id} onClick={() => setViewSeeding(e)} className="w-full text-left flex items-center gap-2 text-sm bg-amber-50 rounded-lg p-2.5 hover:bg-amber-100 transition-colors">
                     <CalendarDays className="h-4 w-4 text-amber-600" />
                     <span>Seeded <span className="font-medium">Field {e.fieldNumber}</span> — {e.cropType}</span>
-                  </div>
+                  </button>
                 ))}
                 {((activityFilter === 'scouting' && todayScouting.length === 0)
                   || (activityFilter === 'spray' && todaySpray.length === 0)
@@ -239,14 +213,14 @@ export default function Dashboard({ data }: Props) {
                 {/* Recent reports */}
                 <div className="space-y-1">
                   {weeklyReports.slice(0, 4).map(r => (
-                    <div key={r.id} className="flex items-center gap-2 text-xs text-gray-600 py-1 border-b border-gray-100 last:border-0">
+                    <button key={r.id} onClick={() => setViewReport(r)} className="w-full flex items-center gap-2 text-xs text-gray-600 py-1 border-b border-gray-100 last:border-0 hover:bg-gray-50 rounded px-1 transition-colors text-left cursor-pointer">
                       <span className="text-base">{CROP_EMOJI[r.cropType] ?? '🌿'}</span>
                       <span className="font-medium">Field {r.fieldNumber}</span>
                       <span className="text-gray-400">{r.date}</span>
                       <span className={`ml-auto px-1.5 py-0.5 rounded-full text-xs font-medium capitalize ${r.priority === 'high' ? 'priority-high' : r.priority === 'medium' ? 'priority-medium' : 'priority-low'}`}>
                         {r.priority}
                       </span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -277,7 +251,7 @@ export default function Dashboard({ data }: Props) {
                 .sort((a, b) => a.plannedDate.localeCompare(b.plannedDate))
                 .slice(0, 4)
                 .map(a => (
-                  <div key={a.id} className={`flex items-center gap-3 text-sm rounded-lg p-2.5 ${a.priority === 'high' ? 'bg-red-50' : 'bg-gray-50'}`}>
+                  <button key={a.id} onClick={() => setViewSpray(a)} className={`w-full text-left flex items-center gap-3 text-sm rounded-lg p-2.5 transition-colors ${a.priority === 'high' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'}`}>
                     <Syringe className={`h-4 w-4 shrink-0 ${a.priority === 'high' ? 'text-red-500' : 'text-purple-500'}`} />
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">{a.product}</div>
@@ -285,7 +259,7 @@ export default function Dashboard({ data }: Props) {
                         {a.plannedDate} · {a.fieldNumbers.length > 0 ? `Fields: ${a.fieldNumbers.join(', ')}` : 'All fields'}
                       </div>
                     </div>
-                  </div>
+                  </button>
                 ))
               }
             </div>
@@ -307,7 +281,7 @@ export default function Dashboard({ data }: Props) {
           ) : (
             <div className="space-y-2">
               {latestYield.map(r => (
-                <div key={r.id} className="flex items-center gap-3 bg-orange-50 rounded-lg p-2.5 text-sm">
+                <button key={r.id} onClick={() => setViewYield(r)} className="w-full text-left flex items-center gap-3 bg-orange-50 rounded-lg p-2.5 text-sm hover:bg-orange-100 transition-colors">
                   <span className="text-2xl">🥔</span>
                   <div className="flex-1">
                     <div className="font-medium">Field {r.fieldNumber}</div>
@@ -317,7 +291,7 @@ export default function Dashboard({ data }: Props) {
                     <div className="font-bold text-green-700">{r.estimatedYield.toFixed(1)}</div>
                     <div className="text-xs text-gray-500">cwt/ac</div>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -328,6 +302,153 @@ export default function Dashboard({ data }: Props) {
       </div>
 
     </div>
+
+      {/* Scouting Report Detail Modal */}
+      {viewReport !== null && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl my-4">
+            <div className="flex items-center justify-between p-5 border-b">
+              <h2 className="text-lg font-semibold">
+                Scouting Report — Field {viewReport!.fieldNumber}
+              </h2>
+              <button onClick={() => setViewReport(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><span className="text-gray-500">Crop:</span> <span className="font-medium">{viewReport.cropType}</span></div>
+                <div><span className="text-gray-500">Variety:</span> <span className="font-medium">{viewReport.variety || '—'}</span></div>
+                <div><span className="text-gray-500">Date:</span> <span className="font-medium">{viewReport.date}</span></div>
+                <div><span className="text-gray-500">Priority:</span>{' '}
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${viewReport.priority === 'high' ? 'priority-high' : viewReport.priority === 'medium' ? 'priority-medium' : 'priority-low'}`}>
+                    {viewReport.priority}
+                  </span>
+                </div>
+              </div>
+
+              {(viewReport.weedsPresent?.length ?? 0) > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-1">Weeds Present</h3>
+                  <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
+                    {viewReport.weedsPresent?.join(', ')}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Scouting Data</h3>
+                <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
+                  {Object.entries(viewReport.cropData)
+                    .filter(([k, v]) => k !== 'crop' && v !== undefined && v !== '' && v !== 0 && v !== false)
+                    .map(([k, v]) => (
+                      <div key={k} className="flex gap-2">
+                        <span className="text-gray-500 capitalize">{k.replace(/([A-Z])/g, ' $1').trim()}:</span>
+                        <span className="font-medium">{String(v)}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {viewReport.photos.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Photos ({viewReport.photos.length})</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {viewReport.photos.map((p, i) => (
+                      <img key={i} src={p} alt={`Photo ${i + 1}`} className="photo-thumbnail" />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {viewReport.notes && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-1">Notes</h3>
+                  <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{viewReport.notes}</p>
+                </div>
+              )}
+
+              <div className="pt-2">
+                <Link to="/scouting" onClick={() => setViewReport(null)} className="text-sm text-green-700 hover:text-green-900 flex items-center gap-1">
+                  Open in Scouting <ChevronRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewSpray && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-xl my-4">
+            <div className="flex items-center justify-between p-5 border-b">
+              <h2 className="text-lg font-semibold">Spray Detail</h2>
+              <button onClick={() => setViewSpray(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-3 text-sm">
+              <div><span className="text-gray-500">Product:</span> <span className="font-medium">{viewSpray.product}</span></div>
+              <div><span className="text-gray-500">Status:</span> <span className="font-medium capitalize">{viewSpray.status}</span></div>
+              <div><span className="text-gray-500">Priority:</span> <span className="font-medium capitalize">{viewSpray.priority}</span></div>
+              <div><span className="text-gray-500">Planned Date:</span> <span className="font-medium">{viewSpray.plannedDate}</span></div>
+              {viewSpray.appliedDate && <div><span className="text-gray-500">Applied Date:</span> <span className="font-medium">{viewSpray.appliedDate}</span></div>}
+              <div><span className="text-gray-500">Fields:</span> <span className="font-medium">{viewSpray.fieldNumbers.length ? viewSpray.fieldNumbers.join(', ') : 'All fields'}</span></div>
+              {viewSpray.notes && <div><span className="text-gray-500">Notes:</span> <span className="font-medium">{viewSpray.notes}</span></div>}
+              <Link to="/spray" onClick={() => setViewSpray(null)} className="text-sm text-green-700 hover:text-green-900 flex items-center gap-1 pt-2">
+                Open in Spray <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewSeeding && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-xl my-4">
+            <div className="flex items-center justify-between p-5 border-b">
+              <h2 className="text-lg font-semibold">Seeding Detail</h2>
+              <button onClick={() => setViewSeeding(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-3 text-sm">
+              <div><span className="text-gray-500">Field:</span> <span className="font-medium">{viewSeeding.fieldNumber}</span></div>
+              <div><span className="text-gray-500">Crop:</span> <span className="font-medium">{viewSeeding.cropType}</span></div>
+              {viewSeeding.variety && <div><span className="text-gray-500">Variety:</span> <span className="font-medium">{viewSeeding.variety}</span></div>}
+              <div><span className="text-gray-500">Date:</span> <span className="font-medium">{viewSeeding.seedingDate}</span></div>
+              {viewSeeding.seedingRate && <div><span className="text-gray-500">Seeding Rate:</span> <span className="font-medium">{viewSeeding.seedingRate}</span></div>}
+              {viewSeeding.notes && <div><span className="text-gray-500">Notes:</span> <span className="font-medium">{viewSeeding.notes}</span></div>}
+              <Link to="/seeding-plan" onClick={() => setViewSeeding(null)} className="text-sm text-green-700 hover:text-green-900 flex items-center gap-1 pt-2">
+                Open in Seeding <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewYield && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-xl my-4">
+            <div className="flex items-center justify-between p-5 border-b">
+              <h2 className="text-lg font-semibold">Potato Yield Detail</h2>
+              <button onClick={() => setViewYield(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-3 text-sm">
+              <div><span className="text-gray-500">Field:</span> <span className="font-medium">{viewYield.fieldNumber}</span></div>
+              <div><span className="text-gray-500">Date:</span> <span className="font-medium">{viewYield.date}</span></div>
+              <div><span className="text-gray-500">Potato Type:</span> <span className="font-medium">{viewYield.potatoType}</span></div>
+              <div><span className="text-gray-500">Estimated Yield:</span> <span className="font-medium">{viewYield.estimatedYield.toFixed(1)} cwt/ac</span></div>
+              <Link to="/potato-yield" onClick={() => setViewYield(null)} className="text-sm text-green-700 hover:text-green-900 flex items-center gap-1 pt-2">
+                Open in Potato Yield <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
