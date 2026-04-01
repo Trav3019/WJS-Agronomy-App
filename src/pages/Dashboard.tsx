@@ -1,9 +1,9 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { AppData, ScoutingReport, SprayApplication, SeedingEntry, PotatoYieldReport } from '../types';
+import type { AppData, ScoutingReport, SprayApplication, SeedingEntry, PotatoYieldReport, TillageReport } from '../types';
 import WeatherWidget from '../components/WeatherWidget';
 import {
-  ClipboardList, Syringe, Sprout, Wrench, CalendarDays,
+  ClipboardList, Syringe, Sprout, Wrench, CalendarDays, Wheat,
   ChevronRight, X
 } from 'lucide-react';
 import { format, subDays, isWithinInterval, parseISO } from 'date-fns';
@@ -32,12 +32,13 @@ function toDisplayValue(value: unknown): string {
 }
 
 export default function Dashboard({ data }: Props) {
-  const [activityFilter, setActivityFilter] = useState<'all' | 'scouting' | 'spray' | 'seeding'>('all');
+  const [activityFilter, setActivityFilter] = useState<'all' | 'scouting' | 'spray' | 'seeding' | 'tillage' | 'harvest'>('all');
   const [weeklyPriorityFilter, setWeeklyPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
   const [viewReport, setViewReport] = useState<ScoutingReport | null>(null);
   const [viewSpray, setViewSpray] = useState<SprayApplication | null>(null);
   const [viewSeeding, setViewSeeding] = useState<SeedingEntry | null>(null);
   const [viewYield, setViewYield] = useState<PotatoYieldReport | null>(null);
+  const [viewTillage, setViewTillage] = useState<TillageReport | null>(null);
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
   const weekAgo = subDays(today, 6);
@@ -46,7 +47,14 @@ export default function Dashboard({ data }: Props) {
   const todayScouting = data.scoutingReports.filter(r => r.date === todayStr);
   const todaySpray = data.sprayApplications.filter(a => a.appliedDate === todayStr || a.plannedDate === todayStr);
   const todaySeeding = data.seedingEntries.filter(e => e.seedingDate === todayStr);
-  const hasTodayActivity = todayScouting.length > 0 || todaySpray.length > 0 || todaySeeding.length > 0;
+  const todayTillage = data.tillageReports.filter(r => r.date === todayStr);
+  const todayHarvest = data.harvestReports.filter(r => r.date === todayStr);
+  const hasTodayActivity =
+    todayScouting.length > 0
+    || todaySpray.length > 0
+    || todaySeeding.length > 0
+    || todayTillage.length > 0
+    || todayHarvest.length > 0;
 
   // Weekly scouting
   const weeklyReports = data.scoutingReports.filter(r => {
@@ -151,6 +159,8 @@ export default function Dashboard({ data }: Props) {
                 <button onClick={() => setActivityFilter('scouting')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'scouting' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>Scouting</button>
                 <button onClick={() => setActivityFilter('spray')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'spray' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-600'}`}>Spray</button>
                 <button onClick={() => setActivityFilter('seeding')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'seeding' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'}`}>Seeding</button>
+                <button onClick={() => setActivityFilter('tillage')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'tillage' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>Tillage</button>
+                <button onClick={() => setActivityFilter('harvest')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'harvest' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-600'}`}>Harvest</button>
               </div>
             </div>
             {!hasTodayActivity ? (
@@ -178,9 +188,23 @@ export default function Dashboard({ data }: Props) {
                     <span>Seeded <span className="font-medium">Field {e.fieldNumber}</span> — {e.cropType}</span>
                   </button>
                 ))}
+                {(activityFilter === 'all' || activityFilter === 'tillage') && todayTillage.map(r => (
+                  <button key={r.id} onClick={() => setViewTillage(r)} className="w-full text-left flex items-center gap-2 text-sm bg-green-50 rounded-lg p-2.5 hover:bg-green-100 transition-colors">
+                    <Wrench className="h-4 w-4 text-green-600" />
+                    <span>Tillage on <span className="font-medium">Field {r.fieldNumber}</span> — {r.method}</span>
+                  </button>
+                ))}
+                {(activityFilter === 'all' || activityFilter === 'harvest') && todayHarvest.map(r => (
+                  <Link key={r.id} to="/harvest" className="w-full text-left flex items-center gap-2 text-sm bg-orange-50 rounded-lg p-2.5 hover:bg-orange-100 transition-colors">
+                    <Wheat className="h-4 w-4 text-orange-600" />
+                    <span>Harvested <span className="font-medium">Field {r.fieldNumber}</span> — {r.cropType}</span>
+                  </Link>
+                ))}
                 {((activityFilter === 'scouting' && todayScouting.length === 0)
                   || (activityFilter === 'spray' && todaySpray.length === 0)
-                  || (activityFilter === 'seeding' && todaySeeding.length === 0)) && (
+                  || (activityFilter === 'seeding' && todaySeeding.length === 0)
+                  || (activityFilter === 'tillage' && todayTillage.length === 0)
+                  || (activityFilter === 'harvest' && todayHarvest.length === 0)) && (
                   <p className="text-sm text-gray-400 py-2">No matching activity for this filter today.</p>
                 )}
               </div>
@@ -542,20 +566,20 @@ export default function Dashboard({ data }: Props) {
             <div className="p-4 sm:p-5 space-y-4 text-sm overflow-y-auto max-h-[calc(92vh-72px)]">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div><span className="text-gray-500">Crop:</span> <span className="font-medium">{viewSeeding.cropType}</span></div>
-                <div><span className="text-gray-500">Variety:</span> <span className="font-medium">{viewSeeding.variety || '-'}</span></div>
                 <div><span className="text-gray-500">Seeding Date:</span> <span className="font-medium">{viewSeeding.seedingDate}</span></div>
-                <div><span className="text-gray-500">Direction:</span> <span className="font-medium">{viewSeeding.seedingDirection || '-'}</span></div>
                 <div><span className="text-gray-500">Seeding Rate:</span> <span className="font-medium">{viewSeeding.seedingRate}</span></div>
-                <div><span className="text-gray-500">Population:</span> <span className="font-medium">{viewSeeding.population ?? '-'}</span></div>
-                <div><span className="text-gray-500">Row Spacing:</span> <span className="font-medium">{viewSeeding.rowSpacing ?? '-'}{viewSeeding.rowSpacing ? ' in' : ''}</span></div>
-                <div><span className="text-gray-500">Seed Depth:</span> <span className="font-medium">{viewSeeding.seedDepth ?? '-'}{viewSeeding.seedDepth ? ' in' : ''}</span></div>
-                <div><span className="text-gray-500">Tuber Size:</span> <span className="font-medium">{viewSeeding.tuberSize || '-'}</span></div>
-                <div><span className="text-gray-500">Seed Cut Date:</span> <span className="font-medium">{viewSeeding.seedCutDate || '-'}</span></div>
-                <div><span className="text-gray-500">Tuber Temp:</span> <span className="font-medium">{viewSeeding.tuberTemp ?? '-'}{viewSeeding.tuberTemp !== undefined ? ' C' : ''}</span></div>
-                <div><span className="text-gray-500">Ground Temp:</span> <span className="font-medium">{viewSeeding.groundTemperature ?? '-'}{viewSeeding.groundTemperature !== undefined ? ' C' : ''}</span></div>
-                <div className="sm:col-span-2"><span className="text-gray-500">Chemical Mix:</span> <span className="font-medium">{viewSeeding.chemicalMix || '-'}</span></div>
-                <div className="sm:col-span-2"><span className="text-gray-500">Field Trials:</span> <span className="font-medium">{viewSeeding.fieldTrials || '-'}</span></div>
-                <div className="sm:col-span-2"><span className="text-gray-500">Pin Info:</span> <span className="font-medium">{viewSeeding.pinInfo || '-'}</span></div>
+                {viewSeeding.variety && <div><span className="text-gray-500">Variety:</span> <span className="font-medium">{viewSeeding.variety}</span></div>}
+                {viewSeeding.seedingDirection && <div><span className="text-gray-500">Direction:</span> <span className="font-medium">{viewSeeding.seedingDirection}</span></div>}
+                {viewSeeding.population !== undefined && <div><span className="text-gray-500">Population:</span> <span className="font-medium">{viewSeeding.population}</span></div>}
+                {viewSeeding.rowSpacing !== undefined && <div><span className="text-gray-500">Row Spacing:</span> <span className="font-medium">{viewSeeding.rowSpacing} in</span></div>}
+                {viewSeeding.seedDepth !== undefined && <div><span className="text-gray-500">Seed Depth:</span> <span className="font-medium">{viewSeeding.seedDepth} in</span></div>}
+                {viewSeeding.tuberSize && <div><span className="text-gray-500">Tuber Size:</span> <span className="font-medium">{viewSeeding.tuberSize}</span></div>}
+                {viewSeeding.seedCutDate && <div><span className="text-gray-500">Seed Cut Date:</span> <span className="font-medium">{viewSeeding.seedCutDate}</span></div>}
+                {viewSeeding.tuberTemp !== undefined && <div><span className="text-gray-500">Tuber Temp:</span> <span className="font-medium">{viewSeeding.tuberTemp} C</span></div>}
+                {viewSeeding.groundTemperature !== undefined && <div><span className="text-gray-500">Ground Temp:</span> <span className="font-medium">{viewSeeding.groundTemperature} C</span></div>}
+                {viewSeeding.chemicalMix && <div className="sm:col-span-2"><span className="text-gray-500">Chemical Mix:</span> <span className="font-medium">{viewSeeding.chemicalMix}</span></div>}
+                {viewSeeding.fieldTrials && <div className="sm:col-span-2"><span className="text-gray-500">Field Trials:</span> <span className="font-medium">{viewSeeding.fieldTrials}</span></div>}
+                {viewSeeding.pinInfo && <div className="sm:col-span-2"><span className="text-gray-500">Pin Info:</span> <span className="font-medium">{viewSeeding.pinInfo}</span></div>}
               </div>
 
               {viewSeeding.weather && (
@@ -565,7 +589,7 @@ export default function Dashboard({ data }: Props) {
                     <div><span className="text-gray-500">Temp:</span> <span className="font-medium">{viewSeeding.weather.temperature} C</span></div>
                     <div><span className="text-gray-500">Precip:</span> <span className="font-medium">{viewSeeding.weather.precipitation} mm</span></div>
                     <div><span className="text-gray-500">Wind:</span> <span className="font-medium">{viewSeeding.weather.windSpeed} km/h</span></div>
-                    <div><span className="text-gray-500">Humidity:</span> <span className="font-medium">{viewSeeding.weather.humidity ?? '-'}{viewSeeding.weather.humidity !== undefined ? '%' : ''}</span></div>
+                    {viewSeeding.weather.humidity !== undefined && <div><span className="text-gray-500">Humidity:</span> <span className="font-medium">{viewSeeding.weather.humidity}%</span></div>}
                   </div>
                 </div>
               )}
@@ -585,7 +609,7 @@ export default function Dashboard({ data }: Props) {
                 </div>
               )}
 
-              <Link to="/seeding-plan" onClick={() => setViewSeeding(null)} className="text-sm text-green-700 hover:text-green-900 flex items-center gap-1 pt-2">
+              <Link to="/seeding" onClick={() => setViewSeeding(null)} className="text-sm text-green-700 hover:text-green-900 flex items-center gap-1 pt-2">
                 Open in Seeding <ChevronRight className="h-4 w-4" />
               </Link>
             </div>
@@ -677,6 +701,37 @@ export default function Dashboard({ data }: Props) {
 
               <Link to="/potato-yield" onClick={() => setViewYield(null)} className="text-sm text-green-700 hover:text-green-900 flex items-center gap-1 pt-2">
                 Open in Potato Yield <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewTillage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-start justify-center z-50 p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full max-w-2xl my-0 sm:my-4 max-h-[92vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b">
+              <h2 className="text-base sm:text-lg font-semibold">Tillage Report - Field {viewTillage.fieldNumber}</h2>
+              <button onClick={() => setViewTillage(null)} className="text-gray-400 hover:text-gray-600 p-1.5 -mr-1">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4 sm:p-5 space-y-4 text-sm overflow-y-auto max-h-[calc(92vh-72px)]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div><span className="text-gray-500">Date:</span> <span className="font-medium">{viewTillage.date}</span></div>
+                <div><span className="text-gray-500">Method:</span> <span className="font-medium">{viewTillage.method}</span></div>
+                {viewTillage.depthInches !== undefined && <div><span className="text-gray-500">Depth:</span> <span className="font-medium">{viewTillage.depthInches} in</span></div>}
+              </div>
+
+              {viewTillage.notes && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-1">Notes</h3>
+                  <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{viewTillage.notes}</p>
+                </div>
+              )}
+
+              <Link to="/tillage" onClick={() => setViewTillage(null)} className="text-sm text-green-700 hover:text-green-900 flex items-center gap-1 pt-2">
+                Open in Tillage <ChevronRight className="h-4 w-4" />
               </Link>
             </div>
           </div>
