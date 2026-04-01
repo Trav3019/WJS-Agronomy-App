@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import type { AppData, ScoutingReport, SprayApplication, SeedingEntry, PotatoYieldReport } from '../types';
 import WeatherWidget from '../components/WeatherWidget';
 import {
-  ClipboardList, Syringe, Sprout, Rows3, CalendarDays,
+  ClipboardList, Syringe, Sprout, Wrench, CalendarDays,
   ChevronRight, X
 } from 'lucide-react';
 import { format, subDays, isWithinInterval, parseISO } from 'date-fns';
@@ -17,8 +17,19 @@ const CROP_EMOJI: Record<string, string> = {
   'Edible Beans': '🫘', Oats: '🌾', Potatoes: '🥔',
 };
 
+function toDisplayLabel(value: string): string {
+  const spaced = value.replace(/([A-Z])/g, ' $1').trim();
+  return spaced ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : spaced;
+}
+
+function toDisplayValue(value: unknown): string {
+  if (typeof value !== 'string') return String(value);
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
 export default function Dashboard({ data }: Props) {
   const [activityFilter, setActivityFilter] = useState<'all' | 'scouting' | 'spray' | 'seeding'>('all');
+  const [weeklyPriorityFilter, setWeeklyPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
   const [viewReport, setViewReport] = useState<ScoutingReport | null>(null);
   const [viewSpray, setViewSpray] = useState<SprayApplication | null>(null);
   const [viewSeeding, setViewSeeding] = useState<SeedingEntry | null>(null);
@@ -39,14 +50,19 @@ export default function Dashboard({ data }: Props) {
     catch { return false; }
   });
 
+  const filteredWeeklyReports = useMemo(() => {
+    if (weeklyPriorityFilter === 'all') return weeklyReports;
+    return weeklyReports.filter(r => r.priority === weeklyPriorityFilter);
+  }, [weeklyReports, weeklyPriorityFilter]);
+
   // Weekly scouting breakdown by crop
   const weeklyByCrop = useMemo(() => {
     const map: Record<string, number> = {};
-    weeklyReports.forEach(r => {
+    filteredWeeklyReports.forEach(r => {
       map[r.cropType] = (map[r.cropType] ?? 0) + 1;
     });
     return map;
-  }, [weeklyReports]);
+  }, [filteredWeeklyReports]);
 
   // Latest potato yield
   const latestYield = data.potatoYieldReports
@@ -65,14 +81,25 @@ export default function Dashboard({ data }: Props) {
 
       {/* Quick stat row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Link to="/fields" className="card hover:shadow-md transition-all hover:border-green-300 group">
+        <Link to="/tillage" className="card hover:shadow-md transition-all hover:border-green-300 group">
           <div className="flex items-center gap-3">
             <div className="bg-green-100 rounded-lg p-2 group-hover:bg-green-200 transition-colors">
-              <Rows3 className="h-5 w-5 text-green-700" />
+              <Wrench className="h-5 w-5 text-green-700" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-green-900">{data.fields.length}</div>
-              <div className="text-xs text-gray-500">Fields</div>
+              <div className="text-2xl font-bold text-green-900">{data.tillageReports.length}</div>
+              <div className="text-xs text-gray-500">Tillage Reports</div>
+            </div>
+          </div>
+        </Link>
+        <Link to="/seeding-plan" className="card hover:shadow-md transition-all hover:border-green-300 group">
+          <div className="flex items-center gap-3">
+            <div className="bg-amber-100 rounded-lg p-2 group-hover:bg-amber-200 transition-colors">
+              <CalendarDays className="h-5 w-5 text-amber-700" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-amber-900">{data.seedingEntries.length}</div>
+              <div className="text-xs text-gray-500">Seeding Records</div>
             </div>
           </div>
         </Link>
@@ -97,17 +124,6 @@ export default function Dashboard({ data }: Props) {
                 {data.sprayApplications.filter(a => a.status === 'planned').length}
               </div>
               <div className="text-xs text-gray-500">Sprays Planned</div>
-            </div>
-          </div>
-        </Link>
-        <Link to="/seeding-plan" className="card hover:shadow-md transition-all hover:border-green-300 group">
-          <div className="flex items-center gap-3">
-            <div className="bg-amber-100 rounded-lg p-2 group-hover:bg-amber-200 transition-colors">
-              <CalendarDays className="h-5 w-5 text-amber-700" />
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-amber-900">{data.seedingEntries.length}</div>
-              <div className="text-xs text-gray-500">Seeding Records</div>
             </div>
           </div>
         </Link>
@@ -181,7 +197,8 @@ export default function Dashboard({ data }: Props) {
             ) : (
               <div className="space-y-3">
                 <div className="text-sm text-gray-600">
-                  <span className="font-semibold text-green-800 text-lg">{weeklyReports.length}</span> reports filed this week
+                  <span className="font-semibold text-green-800 text-lg">{filteredWeeklyReports.length}</span>{' '}
+                  {weeklyPriorityFilter === 'all' ? 'reports filed this week' : `${weeklyPriorityFilter} priority reports this week`}
                 </div>
 
                 {/* By crop */}
@@ -199,20 +216,30 @@ export default function Dashboard({ data }: Props) {
 
                 {/* Priority breakdown */}
                 <div className="flex gap-3 text-xs">
+                  <button
+                    onClick={() => setWeeklyPriorityFilter('all')}
+                    className={`px-2 py-1 rounded-full font-medium ${weeklyPriorityFilter === 'all' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}
+                  >
+                    All ({weeklyReports.length})
+                  </button>
                   {(['high', 'medium', 'low'] as const).map(p => {
                     const count = weeklyReports.filter(r => r.priority === p).length;
                     if (count === 0) return null;
                     return (
-                      <span key={p} className={`px-2 py-1 rounded-full font-medium capitalize ${p === 'high' ? 'priority-high' : p === 'medium' ? 'priority-medium' : 'priority-low'}`}>
+                      <button
+                        key={p}
+                        onClick={() => setWeeklyPriorityFilter(p)}
+                        className={`px-2 py-1 rounded-full font-medium capitalize ${weeklyPriorityFilter === p ? (p === 'high' ? 'priority-high' : p === 'medium' ? 'priority-medium' : 'priority-low') : 'bg-gray-100 text-gray-600'}`}
+                      >
                         {count} {p}
-                      </span>
+                      </button>
                     );
                   })}
                 </div>
 
                 {/* Recent reports */}
                 <div className="space-y-1">
-                  {weeklyReports.slice(0, 4).map(r => (
+                  {filteredWeeklyReports.slice(0, 4).map(r => (
                     <button key={r.id} onClick={() => setViewReport(r)} className="w-full flex items-center gap-2 text-xs text-gray-600 py-1 border-b border-gray-100 last:border-0 hover:bg-gray-50 rounded px-1 transition-colors text-left cursor-pointer">
                       <span className="text-base">{CROP_EMOJI[r.cropType] ?? '🌿'}</span>
                       <span className="font-medium">Field {r.fieldNumber}</span>
@@ -222,6 +249,9 @@ export default function Dashboard({ data }: Props) {
                       </span>
                     </button>
                   ))}
+                  {filteredWeeklyReports.length === 0 && (
+                    <p className="text-sm text-gray-400 py-2">No reports match this priority this week.</p>
+                  )}
                 </div>
               </div>
             )}
@@ -343,8 +373,8 @@ export default function Dashboard({ data }: Props) {
                     .filter(([k, v]) => k !== 'crop' && v !== undefined && v !== '' && v !== 0 && v !== false)
                     .map(([k, v]) => (
                       <div key={k} className="flex gap-2">
-                        <span className="text-gray-500 capitalize">{k.replace(/([A-Z])/g, ' $1').trim()}:</span>
-                        <span className="font-medium">{String(v)}</span>
+                        <span className="text-gray-500">{toDisplayLabel(k)}:</span>
+                        <span className="font-medium">{toDisplayValue(v)}</span>
                       </div>
                     ))}
                 </div>
