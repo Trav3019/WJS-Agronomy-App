@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import type { AppData, SprayApplication, Priority } from '../types';
+import { useEffect, useRef, useState } from 'react';
+import type { AppData, SprayApplication, Priority, CropType } from '../types';
 import { generateId, saveSprayApplication, deleteSprayApplication } from '../utils/storage';
-import { Plus, X, Trash2, Eye, CheckCircle, Clock, XCircle, Syringe, AlertTriangle } from 'lucide-react';
+import { Plus, X, Trash2, Eye, CheckCircle, Clock, XCircle, Syringe, AlertTriangle, ChevronDown } from 'lucide-react';
 
 interface Props {
   data: AppData;
@@ -9,8 +9,45 @@ interface Props {
 }
 
 const METHODS = ['Ground Sprayer', 'Air (Aircraft)', 'High-Clearance Sprayer', 'Backpack Sprayer', 'Drone'];
+const CROPS: CropType[] = ['Corn', 'Canola', 'Soybeans', 'Wheat', 'Edible Beans', 'Oats', 'Potatoes'];
 const PRODUCT_OPTIONS = [
+  'LI 700',
+  'GLYPHOSATE',
+  'DESICA',
+  'INTERLOCK',
+  'MANIPULATOR',
+  'RAXIL',
+  '2-4,D',
+  'AATREX',
+  'ALLEGRO',
+  'AXIAL EXTREME',
+  'BASAGRAN FORTE',
+  'BRAVO',
+  'EDGE',
+  'EPTAM',
+  'GLUFOSINATE',
+  'GROUP 1',
+  'HEAT/GENERIC',
+  'HI ACTIVATE',
+  'HINGE',
+  'IMPACT',
+  'KOMODO',
+  'MANZATE MAX',
+  'MIAVIS DUO',
+  'MINECTO',
+  'MOVENTO',
+  'MSO',
+  'ON-DECK',
+  'ORANDIS',
+  'OUTSHINE/FORCE FIGHTER',
+  'PROLINE GOLD',
+  'PROLINE/GOLD',
+  'PROSARO/PRO',
+  'PYTHON/VIPER',
+  'QUAD TOP',
+  'REFLEX',
   'Roundup WeatherMax',
+  'Round up Extend',
   'Liberty 280',
   'Glyphosate 4L',
   '2,4-D Amine',
@@ -20,6 +57,9 @@ const PRODUCT_OPTIONS = [
   'Sharpen 2.7',
   'Assure II',
   'Select Max',
+  'Tebuconazole',
+  'TRICOR',
+  'UPTAKE',
 ];
 
 const emptyApp = (): Omit<SprayApplication, 'id' | 'createdAt' | 'updatedAt'> => ({
@@ -67,10 +107,27 @@ export default function SprayPlanner({ data, updateData }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyApp());
   const [filterStatus, setFilterStatus] = useState<SprayApplication['status'] | ''>('');
+  const [filterPriority, setFilterPriority] = useState<Priority | ''>('');
+  const [cropFilter, setCropFilter] = useState<CropType | ''>('');
+  const [fieldsDropdownOpen, setFieldsDropdownOpen] = useState(false);
+  const fieldsDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handlePointerDown(event: MouseEvent) {
+      if (!fieldsDropdownRef.current?.contains(event.target as Node)) {
+        setFieldsDropdownOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, []);
 
   function openNew() {
     setEditingId(null);
     setForm(emptyApp());
+    setCropFilter('');
+    setFieldsDropdownOpen(false);
     setShowForm(true);
   }
 
@@ -99,16 +156,32 @@ export default function SprayPlanner({ data, updateData }: Props) {
       weatherAtApplication: app.weatherAtApplication ?? '',
       notes: app.notes,
     });
+    const selectedCrops = Array.from(new Set(
+      app.fieldIds
+        .map(fieldId => data.fields.find(f => f.id === fieldId)?.cropType)
+        .filter((crop): crop is CropType => Boolean(crop))
+    ));
+    setCropFilter(selectedCrops.length === 1 ? selectedCrops[0] : '');
+    setFieldsDropdownOpen(false);
     setShowForm(true);
   }
 
   function toggleFieldSelection(fieldId: string, fieldNumber: string) {
-    setForm(f => {
-      const selected = f.fieldIds.includes(fieldId);
+    setForm(currentForm => {
+      const isSelected = currentForm.fieldIds.includes(fieldId);
+
+      if (isSelected) {
+        return {
+          ...currentForm,
+          fieldIds: currentForm.fieldIds.filter(id => id !== fieldId),
+          fieldNumbers: currentForm.fieldNumbers.filter(number => number !== fieldNumber),
+        };
+      }
+
       return {
-        ...f,
-        fieldIds: selected ? f.fieldIds.filter(id => id !== fieldId) : [...f.fieldIds, fieldId],
-        fieldNumbers: selected ? f.fieldNumbers.filter(n => n !== fieldNumber) : [...f.fieldNumbers, fieldNumber],
+        ...currentForm,
+        fieldIds: [...currentForm.fieldIds, fieldId],
+        fieldNumbers: [...currentForm.fieldNumbers, fieldNumber],
       };
     });
   }
@@ -150,10 +223,14 @@ export default function SprayPlanner({ data, updateData }: Props) {
 
   const filtered = data.sprayApplications
     .filter(a => !filterStatus || a.status === filterStatus)
+    .filter(a => !filterPriority || a.priority === filterPriority)
     .sort((a, b) => a.plannedDate.localeCompare(b.plannedDate));
 
   const planned = data.sprayApplications.filter(a => a.status === 'planned');
   const applied = data.sprayApplications.filter(a => a.status === 'applied');
+  const availableFields = data.fields
+    .filter(field => !cropFilter || field.cropType === cropFilter)
+    .sort((a, b) => a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' }));
 
   return (
     <div className="space-y-5">
@@ -169,40 +246,53 @@ export default function SprayPlanner({ data, updateData }: Props) {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="card text-center py-3 border-blue-200">
+        <button
+          type="button"
+          onClick={() => {
+            setFilterStatus('planned');
+            setFilterPriority('');
+          }}
+          className={`card text-center py-3 border-blue-200 transition ${filterStatus === 'planned' && !filterPriority ? 'ring-2 ring-blue-400 bg-blue-50' : 'hover:bg-blue-50 cursor-pointer'}`}
+        >
           <div className="text-2xl font-bold text-blue-700">{planned.length}</div>
           <div className="text-xs text-gray-500">Planned</div>
-        </div>
-        <div className="card text-center py-3 border-green-200">
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setFilterStatus('applied');
+            setFilterPriority('');
+          }}
+          className={`card text-center py-3 border-green-200 transition ${filterStatus === 'applied' && !filterPriority ? 'ring-2 ring-green-400 bg-green-50' : 'hover:bg-green-50 cursor-pointer'}`}
+        >
           <div className="text-2xl font-bold text-green-700">{applied.length}</div>
           <div className="text-xs text-gray-500">Applied</div>
-        </div>
-        <div className="card text-center py-3 border-red-200">
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setFilterStatus('planned');
+            setFilterPriority('high');
+          }}
+          className={`card text-center py-3 border-red-200 transition ${filterStatus === 'planned' && filterPriority === 'high' ? 'ring-2 ring-red-400 bg-red-50' : 'hover:bg-red-50 cursor-pointer'}`}
+        >
           <div className="text-2xl font-bold text-red-700">
             {data.sprayApplications.filter(a => a.priority === 'high' && a.status === 'planned').length}
           </div>
           <div className="text-xs text-gray-500">High Priority</div>
-        </div>
-        <div className="card text-center py-3">
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setFilterStatus('');
+            setFilterPriority('');
+          }}
+          className={`card text-center py-3 transition ${!filterStatus && !filterPriority ? 'ring-2 ring-gray-300 bg-gray-50' : 'hover:bg-gray-50 cursor-pointer'}`}
+        >
           <div className="text-2xl font-bold text-gray-700">{data.sprayApplications.length}</div>
           <div className="text-xs text-gray-500">Total</div>
-        </div>
+        </button>
       </div>
-
-      {/* Urgent alert */}
-      {planned.filter(a => a.priority === 'high').length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
-          <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
-          <div>
-            <div className="font-semibold text-red-800 text-sm">High Priority Applications Pending</div>
-            <div className="text-sm text-red-600 mt-1">
-              {planned.filter(a => a.priority === 'high').map(a => (
-                <span key={a.id} className="mr-2">Fields: {a.fieldNumbers.join(', ')} — {a.product}</span>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Filter */}
       <div className="flex gap-3">
@@ -211,6 +301,12 @@ export default function SprayPlanner({ data, updateData }: Props) {
           <option value="planned">Planned</option>
           <option value="applied">Applied</option>
           <option value="cancelled">Cancelled</option>
+        </select>
+        <select className="form-input w-40" value={filterPriority} onChange={e => setFilterPriority(e.target.value as Priority | '')}>
+          <option value="">All Priorities</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
         </select>
       </div>
 
@@ -232,7 +328,7 @@ export default function SprayPlanner({ data, updateData }: Props) {
                 </div>
                 <div className="text-xs text-gray-500 space-x-3">
                   <span>Fields: {app.fieldNumbers.length > 0 ? app.fieldNumbers.join(', ') : 'All'}</span>
-                  {app.appliedDate && <span>Applied: {app.appliedDate}</span>}
+                  {app.status === 'applied' && app.appliedDate && <span>Applied: {app.appliedDate}</span>}
                 </div>
                 <div className="text-sm text-gray-600 mt-1">
                   {(app.chemicals?.length ?? 0) > 0
@@ -271,25 +367,71 @@ export default function SprayPlanner({ data, updateData }: Props) {
             </div>
 
             <div className="p-5 space-y-5">
-              {/* Field selection */}
+              {/* Crop filter */}
               <div>
-                <label className="form-label">Fields to Spray</label>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200 max-h-48 overflow-y-auto">
-                  {data.fields.length === 0 ? (
-                    <p className="text-xs text-gray-400 col-span-4">No fields added yet.</p>
-                  ) : data.fields.map(field => (
-                    <label key={field.id} className={`flex items-center gap-1.5 cursor-pointer text-sm p-1.5 rounded-md transition-colors ${form.fieldIds.includes(field.id) ? 'bg-green-100 text-green-800' : 'hover:bg-gray-100'}`}>
-                      <input
-                        type="checkbox"
-                        checked={form.fieldIds.includes(field.id)}
-                        onChange={() => toggleFieldSelection(field.id, field.fieldNumber)}
-                        className="accent-green-600"
-                      />
-                      <span className="font-medium">{field.fieldNumber}</span>
-                      <span className="text-xs text-gray-500 hidden sm:inline">{field.cropType.split(' ')[0]}</span>
-                    </label>
-                  ))}
-                </div>
+                <label className="form-label">Crop Type</label>
+                <select
+                  className="form-input w-full"
+                  value={cropFilter}
+                  onChange={e => {
+                    setCropFilter(e.target.value as CropType | '');
+                    setForm(f => ({ ...f, fieldIds: [], fieldNumbers: [] }));
+                    setFieldsDropdownOpen(false);
+                  }}
+                >
+                  <option value="">All Crops</option>
+                  {CROPS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+
+              {/* Field selection - dropdown */}
+              <div ref={fieldsDropdownRef} className="relative">
+                <label className="form-label">Fields to Spray *</label>
+                <button
+                  type="button"
+                  className="form-input w-full flex items-center justify-between text-left"
+                  onClick={() => setFieldsDropdownOpen(open => !open)}
+                >
+                  <span className={form.fieldNumbers.length > 0 ? 'text-gray-900' : 'text-gray-400'}>
+                    {form.fieldNumbers.length > 0
+                      ? form.fieldNumbers.join(', ')
+                      : 'Select field(s)...'}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${fieldsDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {fieldsDropdownOpen && (
+                  <div className="absolute z-20 mt-2 w-full rounded-lg border border-gray-200 bg-white shadow-lg">
+                    <div className="max-h-64 overflow-y-auto p-2">
+                      {availableFields.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-gray-400">No fields available for this crop.</div>
+                      ) : availableFields.map(field => (
+                        <label
+                          key={field.id}
+                          className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm cursor-pointer ${form.fieldIds.includes(field.id) ? 'bg-green-50 text-green-800' : 'hover:bg-gray-50'}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={form.fieldIds.includes(field.id)}
+                            onChange={() => toggleFieldSelection(field.id, field.fieldNumber)}
+                            className="accent-green-600"
+                          />
+                          <span className="font-medium">{field.fieldNumber}</span>
+                          <span className="text-xs text-gray-500">{field.cropType}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between border-t border-gray-100 px-3 py-2">
+                      <span className="text-xs text-gray-500">{form.fieldIds.length} selected</span>
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-green-700 hover:text-green-800"
+                        onClick={() => setForm(f => ({ ...f, fieldIds: [], fieldNumbers: [] }))}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {form.fieldNumbers.length > 0 && (
                   <p className="text-xs text-green-700 mt-1">Selected: {form.fieldNumbers.join(', ')}</p>
                 )}
@@ -344,10 +486,6 @@ export default function SprayPlanner({ data, updateData }: Props) {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="form-label">Active Ingredient</label>
-                  <input className="form-input" value={form.activeIngredient} onChange={e => setForm(f => ({ ...f, activeIngredient: e.target.value }))} placeholder="e.g. Glyphosate" />
-                </div>
-                <div>
                   <label className="form-label">Water Volume</label>
                   <input className="form-input" value={form.waterVolume} onChange={e => setForm(f => ({ ...f, waterVolume: e.target.value }))} placeholder="e.g. 15 gal/ac" />
                 </div>
@@ -362,10 +500,6 @@ export default function SprayPlanner({ data, updateData }: Props) {
                   <input type="date" className="form-input" value={form.appliedDate ?? ''} onChange={e => setForm(f => ({ ...f, appliedDate: e.target.value || undefined }))} />
                 </div>
                 <div>
-                  <label className="form-label">Sprayer / Equipment</label>
-                  <input className="form-input" value={form.sprayer} onChange={e => setForm(f => ({ ...f, sprayer: e.target.value }))} placeholder="e.g. Case IH 4440" />
-                </div>
-                <div>
                   <label className="form-label">Priority</label>
                   <select className="form-input" value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value as Priority }))}>
                     <option value="high">High</option>
@@ -376,11 +510,6 @@ export default function SprayPlanner({ data, updateData }: Props) {
               </div>
 
               <div>
-                <label className="form-label">Weather at Application</label>
-                <input className="form-input" value={form.weatherAtApplication} onChange={e => setForm(f => ({ ...f, weatherAtApplication: e.target.value }))} placeholder="e.g. 20°C, 10 km/h SW, Sunny" />
-              </div>
-
-              <div>
                 <label className="form-label">Notes</label>
                 <textarea className="form-input resize-none" rows={3} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Additional notes, pre/post conditions..." />
               </div>
@@ -388,7 +517,7 @@ export default function SprayPlanner({ data, updateData }: Props) {
 
             <div className="flex justify-end gap-3 p-5 border-t bg-gray-50 rounded-b-xl">
               <button onClick={() => setShowForm(false)} className="btn-secondary">Cancel</button>
-              <button onClick={handleSave} className="btn-primary" disabled={!(form.chemicals?.length ?? 0)}>
+              <button onClick={handleSave} className="btn-primary" disabled={!(form.chemicals?.length ?? 0) || form.fieldIds.length === 0}>
                 {editingId ? 'Save Changes' : 'Save Application'}
               </button>
             </div>
@@ -426,12 +555,9 @@ export default function SprayPlanner({ data, updateData }: Props) {
               )}
               {[
                 ['Fields', viewApp.fieldNumbers.join(', ') || 'All Fields'],
-                ['Active Ingredient', viewApp.activeIngredient],
                 ['Water Volume', viewApp.waterVolume],
                 ['Method', viewApp.applicationMethod],
                 ['Applied Date', viewApp.appliedDate],
-                ['Sprayer', viewApp.sprayer],
-                ['Weather', viewApp.weatherAtApplication],
               ].filter(([, v]) => v).map(([k, v]) => (
                 <div key={k as string} className="flex gap-2">
                   <span className="text-gray-500 w-32 shrink-0">{k}:</span>
