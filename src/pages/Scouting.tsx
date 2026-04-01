@@ -109,6 +109,16 @@ function shouldShowAphidField(growthStage?: string) {
   return /(r\d|flower|flowering|heading|tassel|silk|pod|reproductive|tuber|bulking)/i.test(s);
 }
 
+function toDisplayLabel(value: string): string {
+  const spaced = value.replace(/([A-Z])/g, ' $1').trim();
+  return spaced ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : spaced;
+}
+
+function toDisplayValue(value: unknown): string {
+  if (typeof value !== 'string') return String(value);
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
+
 function SeasonSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
@@ -608,7 +618,7 @@ export default function Scouting({ data, updateData }: Props) {
         });
       },
       err => {
-        setTrackingError(err.code === 1 ? 'Location permission denied.' : 'Unable to record GPS trail.');
+        setTrackingError(err.code === 1 ? 'Location permission denied.' : 'Unable to record GPS location.');
         stopTrailTracking();
       },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
@@ -1145,8 +1155,8 @@ export default function Scouting({ data, updateData }: Props) {
                     .filter(([k, v]) => k !== 'crop' && v !== undefined && v !== '' && v !== 0 && v !== false)
                     .map(([k, v]) => (
                       <div key={k} className="flex gap-2">
-                        <span className="text-gray-500 capitalize">{k.replace(/([A-Z])/g, ' $1').trim()}:</span>
-                        <span className="font-medium">{String(v)}</span>
+                        <span className="text-gray-500">{toDisplayLabel(k)}:</span>
+                        <span className="font-medium">{toDisplayValue(v)}</span>
                       </div>
                     ))
                   }
