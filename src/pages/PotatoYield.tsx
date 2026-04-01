@@ -41,7 +41,9 @@ export default function PotatoYield({ data, updateData }: Props) {
   const [form, setForm] = useState(emptyReport());
   const [filterField, setFilterField] = useState('');
 
-  const potatoFields = data.fields.filter(f => f.cropType === 'Potatoes');
+  const potatoFields = data.fields
+    .filter(f => f.cropType === 'Potatoes')
+    .sort((a, b) => a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' }));
   const potatoVarieties = VARIETIES_BY_CROP.Potatoes;
   const grades = form.potatoType === 'table' ? TABLE_GRADES : PROC_GRADES;
 
