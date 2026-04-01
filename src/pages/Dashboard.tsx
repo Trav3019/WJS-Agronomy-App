@@ -71,23 +71,23 @@ export default function Dashboard({ data }: Props) {
 
   return (
     <>
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-green-900">
+        <h1 className="text-xl sm:text-2xl font-bold text-green-900">
           Good {getGreeting()}, Welcome to WJS Agronomy
         </h1>
-        <p className="text-gray-500 text-sm mt-1">{format(today, 'EEEE, MMMM d, yyyy')}</p>
+        <p className="text-gray-500 text-xs sm:text-sm mt-1">{format(today, 'EEEE, MMMM d, yyyy')}</p>
       </div>
 
       {/* Quick stat row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
         <Link to="/tillage" className="card hover:shadow-md transition-all hover:border-green-300 group">
           <div className="flex items-center gap-3">
             <div className="bg-green-100 rounded-lg p-2 group-hover:bg-green-200 transition-colors">
               <Wrench className="h-5 w-5 text-green-700" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-green-900">{data.tillageReports.length}</div>
+              <div className="text-xl sm:text-2xl font-bold text-green-900">{data.tillageReports.length}</div>
               <div className="text-xs text-gray-500">Tillage Reports</div>
             </div>
           </div>
@@ -98,7 +98,7 @@ export default function Dashboard({ data }: Props) {
               <CalendarDays className="h-5 w-5 text-amber-700" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-amber-900">{data.seedingEntries.length}</div>
+              <div className="text-xl sm:text-2xl font-bold text-amber-900">{data.seedingEntries.length}</div>
               <div className="text-xs text-gray-500">Seeding Records</div>
             </div>
           </div>
@@ -109,7 +109,7 @@ export default function Dashboard({ data }: Props) {
               <ClipboardList className="h-5 w-5 text-blue-700" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-blue-900">{data.scoutingReports.length}</div>
+              <div className="text-xl sm:text-2xl font-bold text-blue-900">{data.scoutingReports.length}</div>
               <div className="text-xs text-gray-500">Scout Reports</div>
             </div>
           </div>
@@ -120,7 +120,7 @@ export default function Dashboard({ data }: Props) {
               <Syringe className="h-5 w-5 text-purple-700" />
             </div>
             <div>
-              <div className="text-2xl font-bold text-purple-900">
+              <div className="text-xl sm:text-2xl font-bold text-purple-900">
                 {data.sprayApplications.filter(a => a.status === 'planned').length}
               </div>
               <div className="text-xs text-gray-500">Sprays Planned</div>
@@ -142,11 +142,11 @@ export default function Dashboard({ data }: Props) {
           <div className="card">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <h2 className="text-base font-semibold text-green-800">Today's Activity</h2>
-              <div className="flex gap-1">
-                <button onClick={() => setActivityFilter('all')} className={`text-xs px-2 py-1 rounded-full ${activityFilter === 'all' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>All</button>
-                <button onClick={() => setActivityFilter('scouting')} className={`text-xs px-2 py-1 rounded-full ${activityFilter === 'scouting' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>Scouting</button>
-                <button onClick={() => setActivityFilter('spray')} className={`text-xs px-2 py-1 rounded-full ${activityFilter === 'spray' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-600'}`}>Spray</button>
-                <button onClick={() => setActivityFilter('seeding')} className={`text-xs px-2 py-1 rounded-full ${activityFilter === 'seeding' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'}`}>Seeding</button>
+              <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1">
+                <button onClick={() => setActivityFilter('all')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'all' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>All</button>
+                <button onClick={() => setActivityFilter('scouting')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'scouting' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>Scouting</button>
+                <button onClick={() => setActivityFilter('spray')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'spray' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-600'}`}>Spray</button>
+                <button onClick={() => setActivityFilter('seeding')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'seeding' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'}`}>Seeding</button>
               </div>
             </div>
             {!hasTodayActivity ? (
@@ -215,10 +215,10 @@ export default function Dashboard({ data }: Props) {
                 </div>
 
                 {/* Priority breakdown */}
-                <div className="flex gap-3 text-xs">
+                <div className="flex flex-wrap gap-2 text-xs sm:text-sm">
                   <button
                     onClick={() => setWeeklyPriorityFilter('all')}
-                    className={`px-2 py-1 rounded-full font-medium ${weeklyPriorityFilter === 'all' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}
+                    className={`px-2.5 py-1.5 rounded-full font-medium min-h-[34px] ${weeklyPriorityFilter === 'all' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}
                   >
                     All ({weeklyReports.length})
                   </button>
@@ -229,7 +229,7 @@ export default function Dashboard({ data }: Props) {
                       <button
                         key={p}
                         onClick={() => setWeeklyPriorityFilter(p)}
-                        className={`px-2 py-1 rounded-full font-medium capitalize ${weeklyPriorityFilter === p ? (p === 'high' ? 'priority-high' : p === 'medium' ? 'priority-medium' : 'priority-low') : 'bg-gray-100 text-gray-600'}`}
+                        className={`px-2.5 py-1.5 rounded-full font-medium capitalize min-h-[34px] ${weeklyPriorityFilter === p ? (p === 'high' ? 'priority-high' : p === 'medium' ? 'priority-medium' : 'priority-low') : 'bg-gray-100 text-gray-600'}`}
                       >
                         {count} {p}
                       </button>
@@ -240,7 +240,7 @@ export default function Dashboard({ data }: Props) {
                 {/* Recent reports */}
                 <div className="space-y-1">
                   {filteredWeeklyReports.slice(0, 4).map(r => (
-                    <button key={r.id} onClick={() => setViewReport(r)} className="w-full flex items-center gap-2 text-xs text-gray-600 py-1 border-b border-gray-100 last:border-0 hover:bg-gray-50 rounded px-1 transition-colors text-left cursor-pointer">
+                    <button key={r.id} onClick={() => setViewReport(r)} className="w-full flex items-center gap-2 text-sm text-gray-600 py-2 border-b border-gray-100 last:border-0 hover:bg-gray-50 rounded px-1 transition-colors text-left cursor-pointer">
                       <span className="text-base">{CROP_EMOJI[r.cropType] ?? '🌿'}</span>
                       <span className="font-medium">Field {r.fieldNumber}</span>
                       <span className="text-gray-400">{r.date}</span>
@@ -335,18 +335,18 @@ export default function Dashboard({ data }: Props) {
 
       {/* Scouting Report Detail Modal */}
       {viewReport !== null && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl my-4">
-            <div className="flex items-center justify-between p-5 border-b">
-              <h2 className="text-lg font-semibold">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-start justify-center z-50 p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full max-w-2xl my-0 sm:my-4 max-h-[92vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b">
+              <h2 className="text-base sm:text-lg font-semibold pr-2">
                 Scouting Report — Field {viewReport!.fieldNumber}
               </h2>
-              <button onClick={() => setViewReport(null)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => setViewReport(null)} className="text-gray-400 hover:text-gray-600 p-1.5 -mr-1">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="p-5 space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="p-4 sm:p-5 space-y-4 overflow-y-auto max-h-[calc(92vh-72px)]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
                 <div><span className="text-gray-500">Crop:</span> <span className="font-medium">{viewReport.cropType}</span></div>
                 <div><span className="text-gray-500">Variety:</span> <span className="font-medium">{viewReport.variety || '—'}</span></div>
                 <div><span className="text-gray-500">Date:</span> <span className="font-medium">{viewReport.date}</span></div>
@@ -409,15 +409,15 @@ export default function Dashboard({ data }: Props) {
       )}
 
       {viewSpray && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-xl my-4">
-            <div className="flex items-center justify-between p-5 border-b">
-              <h2 className="text-lg font-semibold">Spray Detail</h2>
-              <button onClick={() => setViewSpray(null)} className="text-gray-400 hover:text-gray-600">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-start justify-center z-50 p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full max-w-xl my-0 sm:my-4 max-h-[92vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b">
+              <h2 className="text-base sm:text-lg font-semibold">Spray Detail</h2>
+              <button onClick={() => setViewSpray(null)} className="text-gray-400 hover:text-gray-600 p-1.5 -mr-1">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="p-5 space-y-3 text-sm">
+            <div className="p-4 sm:p-5 space-y-3 text-sm overflow-y-auto max-h-[calc(92vh-72px)]">
               <div><span className="text-gray-500">Product:</span> <span className="font-medium">{viewSpray.product}</span></div>
               <div><span className="text-gray-500">Status:</span> <span className="font-medium capitalize">{viewSpray.status}</span></div>
               <div><span className="text-gray-500">Priority:</span> <span className="font-medium capitalize">{viewSpray.priority}</span></div>
@@ -434,15 +434,15 @@ export default function Dashboard({ data }: Props) {
       )}
 
       {viewSeeding && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-xl my-4">
-            <div className="flex items-center justify-between p-5 border-b">
-              <h2 className="text-lg font-semibold">Seeding Detail</h2>
-              <button onClick={() => setViewSeeding(null)} className="text-gray-400 hover:text-gray-600">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-start justify-center z-50 p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full max-w-xl my-0 sm:my-4 max-h-[92vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b">
+              <h2 className="text-base sm:text-lg font-semibold">Seeding Detail</h2>
+              <button onClick={() => setViewSeeding(null)} className="text-gray-400 hover:text-gray-600 p-1.5 -mr-1">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="p-5 space-y-3 text-sm">
+            <div className="p-4 sm:p-5 space-y-3 text-sm overflow-y-auto max-h-[calc(92vh-72px)]">
               <div><span className="text-gray-500">Field:</span> <span className="font-medium">{viewSeeding.fieldNumber}</span></div>
               <div><span className="text-gray-500">Crop:</span> <span className="font-medium">{viewSeeding.cropType}</span></div>
               {viewSeeding.variety && <div><span className="text-gray-500">Variety:</span> <span className="font-medium">{viewSeeding.variety}</span></div>}
@@ -458,15 +458,15 @@ export default function Dashboard({ data }: Props) {
       )}
 
       {viewYield && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-xl my-4">
-            <div className="flex items-center justify-between p-5 border-b">
-              <h2 className="text-lg font-semibold">Potato Yield Detail</h2>
-              <button onClick={() => setViewYield(null)} className="text-gray-400 hover:text-gray-600">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-start justify-center z-50 p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full max-w-xl my-0 sm:my-4 max-h-[92vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b">
+              <h2 className="text-base sm:text-lg font-semibold">Potato Yield Detail</h2>
+              <button onClick={() => setViewYield(null)} className="text-gray-400 hover:text-gray-600 p-1.5 -mr-1">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="p-5 space-y-3 text-sm">
+            <div className="p-4 sm:p-5 space-y-3 text-sm overflow-y-auto max-h-[calc(92vh-72px)]">
               <div><span className="text-gray-500">Field:</span> <span className="font-medium">{viewYield.fieldNumber}</span></div>
               <div><span className="text-gray-500">Date:</span> <span className="font-medium">{viewYield.date}</span></div>
               <div><span className="text-gray-500">Potato Type:</span> <span className="font-medium">{viewYield.potatoType}</span></div>
