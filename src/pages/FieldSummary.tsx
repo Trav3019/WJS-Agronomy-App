@@ -7,11 +7,22 @@ interface Props {
 
 interface FieldOperation {
   id: string;
-  type: 'Seeding Plan' | 'Tillage' | 'Scouting' | 'Spray' | 'Harvest' | 'Potato Yield' | 'Storage Bin';
+  type: 'Seeding Plan' | 'Seeding Record' | 'Tillage' | 'Scouting' | 'Spray' | 'Harvest' | 'Potato Yield' | 'Storage Bin';
   date: string;
   detail: string;
   viewData: Array<{ label: string; value: string }>;
 }
+
+const OPERATION_ORDER: Record<FieldOperation['type'], number> = {
+  'Seeding Plan': 1,
+  Tillage: 2,
+  'Seeding Record': 3,
+  Scouting: 4,
+  Spray: 5,
+  Harvest: 6,
+  'Storage Bin': 7,
+  'Potato Yield': 8,
+};
 
 export default function FieldSummary({ data }: Props) {
   const [fieldFilter, setFieldFilter] = useState('');
@@ -35,6 +46,36 @@ export default function FieldSummary({ data }: Props) {
   }, [cropFilter, fieldFilter, fieldOptions]);
 
   const operationsByField = data.fields.map(field => {
+    const seedingRecords = data.seedingEntries
+      .filter(e => e.fieldId === field.id && e.trialTrack?.name !== 'Seeding Plan')
+      .map<FieldOperation>(e => ({
+        id: `record-${e.id}`,
+        type: 'Seeding Record',
+        date: e.seedingDate,
+        detail: `${e.cropType}${e.variety ? ` - ${e.variety}` : ''}`,
+        viewData: [
+          { label: 'Date', value: e.seedingDate },
+          { label: 'Crop', value: e.cropType },
+          { label: 'Variety', value: e.variety || '-' },
+          { label: 'Seeding Rate', value: e.seedingRate ? `${e.seedingRate.toLocaleString()} seeds/ac` : '-' },
+          { label: 'Direction', value: e.seedingDirection || '-' },
+          { label: 'Population', value: e.population ? `${e.population.toLocaleString()} seeds/ac` : '-' },
+          { label: 'Row Spacing', value: e.rowSpacing ? `${e.rowSpacing} in` : '-' },
+          { label: 'Seed Depth', value: e.seedDepth ? `${e.seedDepth} in` : '-' },
+          { label: 'Tuber Size', value: e.tuberSize || '-' },
+          { label: 'Seed Cut Date', value: e.seedCutDate || '-' },
+          { label: 'Tuber Temp', value: e.tuberTemp !== undefined ? `${e.tuberTemp} C` : '-' },
+          { label: 'Ground Temp', value: e.groundTemperature !== undefined ? `${e.groundTemperature} C` : '-' },
+          { label: 'Chemical Mix', value: e.chemicalMix || '-' },
+          { label: 'Field Trials', value: e.fieldTrials || '-' },
+          { label: 'Pin Info', value: e.pinInfo || '-' },
+          { label: 'Location', value: `${e.location.lat.toFixed(5)}, ${e.location.lng.toFixed(5)}${e.location.accuracy !== undefined ? ` (±${Math.round(e.location.accuracy)}m)` : ''}` },
+          { label: 'Weather', value: e.weather ? `${e.weather.temperature} C, ${e.weather.precipitation} mm, ${e.weather.windSpeed} km/h${e.weather.humidity !== undefined ? `, ${e.weather.humidity}% humidity` : ''}` : '-' },
+          { label: 'Notes', value: e.notes || '-' },
+        ],
+      }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+
     const operations = [
       ...data.seedingEntries
         .filter(e => e.fieldId === field.id)
@@ -152,9 +193,13 @@ export default function FieldSummary({ data }: Props) {
             { label: 'Notes', value: h.notes || '-' },
           ],
         })),
-    ].sort((a, b) => b.date.localeCompare(a.date));
+    ].sort((a, b) => {
+      const typeOrder = OPERATION_ORDER[a.type] - OPERATION_ORDER[b.type];
+      if (typeOrder !== 0) return typeOrder;
+      return b.date.localeCompare(a.date);
+    });
 
-    return { field, operations };
+    return { field, operations, seedingRecords };
   });
 
   const filteredOperationsByField = operationsByField.filter(({ field }) => {
@@ -204,7 +249,7 @@ export default function FieldSummary({ data }: Props) {
       <div className="space-y-4">
         {filteredOperationsByField.length === 0 ? (
           <div className="card text-gray-500">No fields found. Add fields to see summaries.</div>
-        ) : filteredOperationsByField.map(({ field, operations }) => (
+        ) : filteredOperationsByField.map(({ field, operations, seedingRecords }) => (
           <div key={field.id} className="card">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <div>
@@ -233,6 +278,28 @@ export default function FieldSummary({ data }: Props) {
                     <div className="text-xs text-green-700 mt-1">Click to view details</div>
                   </button>
                 ))}
+              </div>
+            )}
+
+            {seedingRecords.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <div className="space-y-2">
+                  {seedingRecords.map((record, idx) => (
+                    <button
+                      type="button"
+                      key={`${field.id}-${record.id}-${idx}`}
+                      className="w-full text-left bg-gray-50 rounded-lg p-2.5 hover:bg-green-50 transition-colors"
+                      onClick={() => setSelectedOperation({ fieldNumber: field.fieldNumber, operation: record })}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium text-green-800">{record.type}</span>
+                        <span className="text-xs text-gray-500">{record.date}</span>
+                      </div>
+                      <div className="text-sm text-gray-600 mt-0.5">{record.detail}</div>
+                      <div className="text-xs text-green-700 mt-1">Click to view details</div>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
