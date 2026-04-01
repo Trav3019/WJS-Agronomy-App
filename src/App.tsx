@@ -10,6 +10,7 @@ import SeedingPlan from './pages/SeedingPlan';
 import Tillage from './pages/Tillage';
 import Harvest from './pages/Harvest';
 import FieldSummary from './pages/FieldSummary';
+import PotatoStorageBins from './pages/PotatoStorageBins';
 import { useAppData } from './hooks/useAppData';
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
           <Route path="seeding" element={<Seeding data={data} updateData={updateData} />} />
           <Route path="tillage" element={<Tillage data={data} updateData={updateData} />} />
           <Route path="harvest" element={<Harvest data={data} updateData={updateData} />} />
+          <Route path="potato-storage" element={<PotatoStorageBins data={data} updateData={updateData} />} />
           <Route path="field-summary" element={<FieldSummary data={data} />} />
         </Route>
       </Routes>
