@@ -75,6 +75,42 @@ const PRODUCT_OPTIONS = [
   'TRICOR',
   'UPTAKE',
 ];
+const CROP_PRODUCT_OPTIONS: Record<CropType, string[]> = {
+  Corn: [
+    'LI 700', 'GLYPHOSATE', 'Roundup WeatherMax', 'Round up Extend', 'Glyphosate 4L',
+    'AATREX', 'Atrazine 500', 'Dicamba 2,4-D', '2,4-D Amine', 'HEAT/GENERIC', 'Sharpen 2.7',
+    'GLUFOSINATE', 'Liberty 280', 'INTERLOCK', 'MSO', 'UPTAKE', 'HI ACTIVATE'
+  ],
+  Canola: [
+    'LI 700', 'GLYPHOSATE', 'Roundup WeatherMax', 'Glyphosate 4L', 'GLUFOSINATE', 'Liberty 280',
+    'HEAT/GENERIC', 'Sharpen 2.7', 'Assure II', 'Select Max', 'PROLINE GOLD', 'PROLINE/GOLD',
+    'INTERLOCK', 'MSO', 'UPTAKE', 'HI ACTIVATE'
+  ],
+  Soybeans: [
+    'LI 700', 'GLYPHOSATE', 'Roundup WeatherMax', 'Round up Extend', 'Glyphosate 4L',
+    'Dicamba 2,4-D', '2,4-D Amine', 'GLUFOSINATE', 'Liberty 280', 'HEAT/GENERIC', 'Sharpen 2.7',
+    'REFLEX', 'Assure II', 'Select Max', 'INTERLOCK', 'MSO', 'UPTAKE', 'HI ACTIVATE'
+  ],
+  Wheat: [
+    'LI 700', 'GLYPHOSATE', 'Roundup WeatherMax', 'Glyphosate 4L', '2,4-D Amine',
+    'AXIAL EXTREME', 'GROUP 1', 'PROSARO/PRO', 'Tebuconazole', 'INTERLOCK', 'MSO', 'UPTAKE', 'RAXIL'
+  ],
+  'Edible Beans': [
+    'LI 700', 'GLYPHOSATE', 'Roundup WeatherMax', 'Glyphosate 4L', 'BASAGRAN FORTE',
+    'Assure II', 'Select Max', 'REFLEX', 'HEAT/GENERIC', 'Sharpen 2.7', 'INTERLOCK', 'MSO', 'UPTAKE'
+  ],
+  Oats: [
+    'LI 700', 'GLYPHOSATE', 'Roundup WeatherMax', 'Glyphosate 4L', '2,4-D Amine',
+    'AXIAL EXTREME', 'GROUP 1', 'Tebuconazole', 'INTERLOCK', 'MSO', 'UPTAKE'
+  ],
+  Potatoes: [
+    'LI 700', 'GLYPHOSATE', 'Roundup WeatherMax', 'Glyphosate 4L', 'HEAT/GENERIC', 'Sharpen 2.7',
+    'EPTAM', 'Metribuzin 75DF', 'REFLEX', 'TRICOR', 'EDGE', 'Assure II', 'Select Max',
+    'BRAVO', 'ALLEGRO', 'ORANDIS', 'QUAD TOP', 'MANZATE MAX', 'MINECTO', 'MOVENTO',
+    'KOMODO', 'PYTHON/VIPER', 'MIAVIS DUO', 'PROLINE/GOLD', 'PROLINE GOLD',
+    'INTERLOCK', 'MSO', 'UPTAKE', 'HI ACTIVATE'
+  ],
+};
 const WEED_OPTIONS = ['Wild Oats', 'Kochia', 'Pigweed', 'Lambsquarters', 'Foxtail', 'Volunteer Canola', 'Thistle', 'Ragweed', 'Cleavers', 'Buckwheat', 'Nightshade'];
 const GROWTH_STAGE_OPTIONS_BY_CROP: Record<CropType, string[]> = {
   Corn: ['emergence', 'v2', 'v4', 'v6', 'tassel', 'silk', 'maturity'],
@@ -569,6 +605,9 @@ export default function Scouting({ data, updateData }: Props) {
   const selectedField = data.fields.find(f => f.id === fieldId);
   const cropType = selectedField?.cropType ?? 'Corn';
   const varietyOptions = VARIETIES_BY_CROP[cropType] ?? [];
+  const sprayCatalogOptions = selectedField
+    ? (CROP_PRODUCT_OPTIONS[selectedField.cropType] ?? PRODUCT_OPTIONS)
+    : PRODUCT_OPTIONS;
   const orderedFields = [...data.fields].sort((a, b) => {
     const cropCmp = CROP_ORDER[a.cropType] - CROP_ORDER[b.cropType];
     if (cropCmp !== 0) return cropCmp;
@@ -1022,12 +1061,15 @@ export default function Scouting({ data, updateData }: Props) {
                           setSprayChemicals(prev => [...prev, { name: value, rate: '' }]);
                         }}>
                           <option value="">Add from catalog</option>
-                          {PRODUCT_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                          {sprayCatalogOptions.map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
                         <button type="button" className="btn-secondary text-xs px-3 whitespace-nowrap" onClick={() => setSprayChemicals(prev => [...prev, { name: '', rate: '' }])}>
                           + Custom
                         </button>
                       </div>
+                      <p className="text-xs text-gray-500">
+                        Catalog: {selectedField ? `${selectedField.cropType} chemicals` : 'All crops (select a field to filter)'}
+                      </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
