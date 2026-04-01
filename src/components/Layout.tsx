@@ -41,7 +41,7 @@ export default function Layout() {
                 to={to}
                 end={end}
                 className={({ isActive }) =>
-                  `flex items-center gap-2 px-3 py-3 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
+                  `flex items-center gap-2 px-3 py-3.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 min-h-[48px] ${
                     isActive
                       ? 'border-green-300 text-white bg-green-600'
                       : 'border-transparent text-green-200 hover:text-white hover:bg-green-600'
@@ -58,7 +58,7 @@ export default function Layout() {
       </nav>
 
       {/* Main content */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-3 sm:px-4 py-4 sm:py-6">
         <Outlet />
       </main>
 
