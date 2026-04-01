@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { AppData, ScoutingReport, SprayApplication, SeedingEntry, PotatoYieldReport } from '../types';
 import WeatherWidget from '../components/WeatherWidget';
@@ -19,6 +19,7 @@ const CROP_EMOJI: Record<string, string> = {
 
 const TABLE_GRADES = ['>2"', '2.25"', '2.5"', '2.75"', '3"', '3.25"', '<3.5"'];
 const PROC_GRADES = ['2oz', '3oz', '4oz', '5oz', '6oz', '7oz', '8oz', '9oz', '10oz', '11oz', '12oz'];
+const GeoMap = lazy(() => import('../components/GeoMap'));
 
 function toDisplayLabel(value: string): string {
   const spaced = value.replace(/([A-Z])/g, ' $1').trim();
@@ -369,6 +370,38 @@ export default function Dashboard({ data }: Props) {
                 </div>
               )}
 
+              {viewReport.trialTrack && viewReport.trialTrack.points.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-1">Trial Track</h3>
+                  <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 mb-2">
+                    <div><span className="text-gray-500">Name:</span> <span className="font-medium">{viewReport.trialTrack.name}</span></div>
+                    <div><span className="text-gray-500">Points:</span> <span className="font-medium">{viewReport.trialTrack.points.length}</span></div>
+                  </div>
+                  <Suspense fallback={null}>
+                    <GeoMap
+                      currentLocation={viewReport.trialTrack.points[viewReport.trialTrack.points.length - 1]}
+                      markers={viewReport.trialTrack.points.map((p, idx) => ({
+                        location: p,
+                        label: `${viewReport.trialTrack?.name} #${idx + 1}`,
+                        date: viewReport.date,
+                        color: '#2563eb',
+                      }))}
+                      height="200px"
+                      readonly
+                    />
+                  </Suspense>
+                </div>
+              )}
+
+              {viewReport.location && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Location</h3>
+                  <Suspense fallback={null}>
+                    <GeoMap currentLocation={viewReport.location} height="200px" readonly />
+                  </Suspense>
+                </div>
+              )}
+
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 mb-2">Scouting Data</h3>
                 <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-1">
@@ -398,6 +431,23 @@ export default function Dashboard({ data }: Props) {
                 <div>
                   <h3 className="text-sm font-semibold text-gray-700 mb-1">Notes</h3>
                   <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{viewReport.notes}</p>
+                </div>
+              )}
+
+              {viewReport.sprayRecord && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-1">Spray Record</h3>
+                  <div className="bg-gray-50 rounded-lg p-3 space-y-2 text-sm">
+                    {viewReport.sprayRecord.chemicals.map((c, i) => (
+                      <div key={`${c.name}-${i}`} className="flex justify-between gap-3">
+                        <span className="font-medium">{c.name}</span>
+                        {c.rate && <span className="text-gray-600 whitespace-nowrap">{c.rate} L</span>}
+                      </div>
+                    ))}
+                    <div><span className="text-gray-500">Method:</span> <span className="font-medium">{viewReport.sprayRecord.applicationMethod}</span></div>
+                    {viewReport.sprayRecord.waterVolume && <div><span className="text-gray-500">Water Volume:</span> <span className="font-medium">{viewReport.sprayRecord.waterVolume}</span></div>}
+                    {viewReport.sprayRecord.notes && <div><span className="text-gray-500">Notes:</span> <span className="font-medium">{viewReport.sprayRecord.notes}</span></div>}
+                  </div>
                 </div>
               )}
 
