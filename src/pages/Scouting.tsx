@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from 'react';
+import { useState, lazy, Suspense, useEffect, useRef } from 'react';
 import type {
   AppData, ScoutingReport, CropType, Priority, GeoLocation,
   CornScoutData, CanolaScoutData, SoyScoutData, WheatScoutData,
@@ -25,7 +25,43 @@ const CROP_ORDER: Record<CropType, number> = {
 };
 const SPRAY_METHODS = ['Ground Sprayer', 'Air (Aircraft)', 'High-Clearance Sprayer', 'Backpack Sprayer', 'Drone'];
 const PRODUCT_OPTIONS = [
+  'LI 700',
+  'GLYPHOSATE',
+  'DESICA',
+  'INTERLOCK',
+  'MANIPULATOR',
+  'RAXIL',
+  '2-4,D',
+  'AATREX',
+  'ALLEGRO',
+  'AXIAL EXTREME',
+  'BASAGRAN FORTE',
+  'BRAVO',
+  'EDGE',
+  'EPTAM',
+  'GLUFOSINATE',
+  'GROUP 1',
+  'HEAT/GENERIC',
+  'HI ACTIVATE',
+  'HINGE',
+  'IMPACT',
+  'KOMODO',
+  'MANZATE MAX',
+  'MIAVIS DUO',
+  'MINECTO',
+  'MOVENTO',
+  'MSO',
+  'ON-DECK',
+  'ORANDIS',
+  'OUTSHINE/FORCE FIGHTER',
+  'PROLINE GOLD',
+  'PROLINE/GOLD',
+  'PROSARO/PRO',
+  'PYTHON/VIPER',
+  'QUAD TOP',
+  'REFLEX',
   'Roundup WeatherMax',
+  'Round up Extend',
   'Liberty 280',
   'Glyphosate 4L',
   '2,4-D Amine',
@@ -35,9 +71,22 @@ const PRODUCT_OPTIONS = [
   'Sharpen 2.7',
   'Assure II',
   'Select Max',
+  'Tebuconazole',
+  'TRICOR',
+  'UPTAKE',
 ];
-const WEED_OPTIONS = ['Wild Oats', 'Kochia', 'Pigweed', 'Lambsquarters', 'Foxtail', 'Volunteer Canola', 'Thistle', 'Ragweed', 'Cleavers'];
+const WEED_OPTIONS = ['Wild Oats', 'Kochia', 'Pigweed', 'Lambsquarters', 'Foxtail', 'Volunteer Canola', 'Thistle', 'Ragweed', 'Cleavers', 'Buckwheat', 'Nightshade'];
+const GROWTH_STAGE_OPTIONS_BY_CROP: Record<CropType, string[]> = {
+  Corn: ['emergence', 'v2', 'v4', 'v6', 'tassel', 'silk', 'maturity'],
+  Canola: ['emergence', 'rosette', 'bolting', 'flowering', 'pod set', 'maturity'],
+  Soybeans: ['emergence', 'v2', 'v4', 'flowering', 'pod set', 'maturity'],
+  Wheat: ['emergence', 'tillering', 'boot', 'heading', 'flowering', 'maturity'],
+  'Edible Beans': ['emergence', 'v2', 'v4', 'flowering', 'pod set', 'maturity'],
+  Oats: ['emergence', 'tillering', 'boot', 'heading', 'flowering', 'maturity'],
+  Potatoes: ['emergence', 'vegetative', 'tuber initiation', 'tuber bulking', 'maturity'],
+};
 const CPB_GROWTH_STAGES = ['egg mass', '1st instar', '2nd instar', '3rd instar', '4th instar', 'adult'];
+const IRRIGATION_STATUS_OPTIONS = ['off', 'running', 'intermittent', 'completed', 'not needed'];
 
 interface Props {
   data: AppData;
@@ -78,7 +127,7 @@ function CornForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Partia
     <div className="space-y-3">
       <SeasonSection title="Early Season">
         <div className="grid grid-cols-2 gap-3">
-          <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. VE-V8" />
+          <FormSelect label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} opts={GROWTH_STAGE_OPTIONS_BY_CROP.Corn} />
           <FormNum label="Plant Stand (plants/ac)" value={data.plantStand} onChange={v => set('plantStand', v)} />
           <FormNum label="Rootworm Feeding (0-10)" value={data.rootwormFeeding} onChange={v => set('rootwormFeeding', v)} />
           <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
@@ -124,7 +173,7 @@ function CanolaForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Part
     <div className="space-y-3">
       <SeasonSection title="Early Season">
         <div className="grid grid-cols-2 gap-3">
-          <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. 2-6 leaf" />
+          <FormSelect label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} opts={GROWTH_STAGE_OPTIONS_BY_CROP.Canola} />
           <FormNum label="Plant Stand (plants/m²)" value={data.plantStand} onChange={v => set('plantStand', v)} />
           <FormNum label="Flea Beetle Feeding (0-10)" value={data.fleaBeetleFeeding} onChange={v => set('fleaBeetleFeeding', v)} />
           <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
@@ -170,7 +219,7 @@ function SoyForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Partial
     <div className="space-y-3">
       <SeasonSection title="Early Season">
         <div className="grid grid-cols-2 gap-3">
-          <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. VE-V4" />
+          <FormSelect label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} opts={GROWTH_STAGE_OPTIONS_BY_CROP.Soybeans} />
           <FormNum label="Plant Stand (plants/ac)" value={data.plantStand} onChange={v => set('plantStand', v)} />
           <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
           <div className="col-span-2">
@@ -215,7 +264,7 @@ function WheatForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Parti
     <div className="space-y-3">
       <SeasonSection title="Early Season">
         <div className="grid grid-cols-2 gap-3">
-          <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. Tillering" />
+          <FormSelect label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} opts={GROWTH_STAGE_OPTIONS_BY_CROP.Wheat} />
           <FormNum label="Plant Stand (plants/m²)" value={data.plantStand} onChange={v => set('plantStand', v)} />
           <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
           <div className="col-span-2">
@@ -267,7 +316,7 @@ function EdibleBeanForm({ data, onChange, weedsPresent, onToggleWeed }: { data: 
     <div className="space-y-3">
       <SeasonSection title="Early Season">
         <div className="grid grid-cols-2 gap-3">
-          <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. V2" />
+          <FormSelect label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} opts={GROWTH_STAGE_OPTIONS_BY_CROP['Edible Beans']} />
           <FormNum label="Plant Stand (plants/ac)" value={data.plantStand} onChange={v => set('plantStand', v)} />
           <FormNum label="Bean Leaf Beetle Defoliation (%)" value={data.beanLeafBeetle} onChange={v => set('beanLeafBeetle', v)} />
           <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
@@ -313,7 +362,7 @@ function OatsForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Partia
     <div className="space-y-3">
       <SeasonSection title="Early Season">
         <div className="grid grid-cols-2 gap-3">
-          <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. Tillering" />
+          <FormSelect label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} opts={GROWTH_STAGE_OPTIONS_BY_CROP.Oats} />
           <FormNum label="Plant Stand (plants/m²)" value={data.plantStand} onChange={v => set('plantStand', v)} />
           <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
           <div className="col-span-2">
@@ -365,8 +414,8 @@ function PotatoForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Part
     <div className="space-y-3">
       <SeasonSection title="Early Season">
         <div className="grid grid-cols-2 gap-3">
-          <FormText label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} placeholder="e.g. Emergence" />
-          <FormNum label="Plant Stand (plants/100m)" value={data.plantStand} onChange={v => set('plantStand', v)} />
+          <FormSelect label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} opts={GROWTH_STAGE_OPTIONS_BY_CROP.Potatoes} />
+          <FormNum label="Plant Stand (plants/10ft)" value={data.plantStand} onChange={v => set('plantStand', v)} />
           <FormNum label="Seed Rot (% plants affected)" value={data.seedRot} onChange={v => set('seedRot', v)} />
           <FormNum label="Blackleg (% plants)" value={data.blackleg} onChange={v => set('blackleg', v)} />
           <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
@@ -389,7 +438,7 @@ function PotatoForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Part
           <FormNum label="CPB Larvae (per plant)" value={data.coloradoPotatoBeetle} onChange={v => set('coloradoPotatoBeetle', v)} step={0.1} />
           <FormSelect label="CPB Growth Stage" value={data.cpbGrowthStage} onChange={v => set('cpbGrowthStage', v)} opts={CPB_GROWTH_STAGES} />
           {showAphids && <FormNum label="Aphids (per leaf)" value={data.aphids} onChange={v => set('aphids', v)} />}
-          <FormText label="Irrigation Status" value={data.irrigationStatus} onChange={v => set('irrigationStatus', v)} placeholder="e.g. Running, Off" />
+          <FormSelect label="Irrigation Status" value={data.irrigationStatus} onChange={v => set('irrigationStatus', v)} opts={IRRIGATION_STATUS_OPTIONS} />
         </div>
         <div className="mt-3">
           <p className="text-xs font-medium text-gray-600 mb-1">Additional Pest Flags</p>
@@ -501,6 +550,11 @@ export default function Scouting({ data, updateData }: Props) {
   const [sprayMethod, setSprayMethod] = useState(SPRAY_METHODS[0]);
   const [sprayWaterVolume, setSprayWaterVolume] = useState('');
   const [sprayNotes, setSprayNotes] = useState('');
+  const [trackName, setTrackName] = useState('');
+  const [trailPoints, setTrailPoints] = useState<GeoLocation[]>([]);
+  const [isTrackingTrail, setIsTrackingTrail] = useState(false);
+  const [trackingError, setTrackingError] = useState<string | null>(null);
+  const watchIdRef = useRef<number | null>(null);
 
   const selectedField = data.fields.find(f => f.id === fieldId);
   const cropType = selectedField?.cropType ?? 'Corn';
@@ -511,7 +565,62 @@ export default function Scouting({ data, updateData }: Props) {
     return a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' });
   });
 
+  function distanceMeters(a: GeoLocation, b: GeoLocation) {
+    const toRad = (v: number) => v * (Math.PI / 180);
+    const r = 6371000;
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const lat1 = toRad(a.lat);
+    const lat2 = toRad(b.lat);
+    const x = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.sin(dLng / 2) * Math.sin(dLng / 2) * Math.cos(lat1) * Math.cos(lat2);
+    const c = 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+    return r * c;
+  }
+
+  function stopTrailTracking() {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    setIsTrackingTrail(false);
+  }
+
+  function startTrailTracking() {
+    if (!navigator.geolocation) {
+      setTrackingError('Geolocation is not supported on this device/browser.');
+      return;
+    }
+    setTrackingError(null);
+    setIsTrackingTrail(true);
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      pos => {
+        const point: GeoLocation = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        };
+        setLocation(point);
+        setTrailPoints(prev => {
+          if (prev.length === 0) return [point];
+          const last = prev[prev.length - 1];
+          if (distanceMeters(last, point) < 3) return prev;
+          return [...prev, point];
+        });
+      },
+      err => {
+        setTrackingError(err.code === 1 ? 'Location permission denied.' : 'Unable to record GPS trail.');
+        stopTrailTracking();
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+    );
+  }
+
+  useEffect(() => {
+    return () => stopTrailTracking();
+  }, []);
+
   function resetForm() {
+    stopTrailTracking();
     setFieldId('');
     setVariety('');
     setDate(new Date().toISOString().split('T')[0]);
@@ -526,6 +635,9 @@ export default function Scouting({ data, updateData }: Props) {
     setSprayMethod(SPRAY_METHODS[0]);
     setSprayWaterVolume('');
     setSprayNotes('');
+    setTrackName('');
+    setTrailPoints([]);
+    setTrackingError(null);
     setEditingReport(null);
   }
 
@@ -551,6 +663,9 @@ export default function Scouting({ data, updateData }: Props) {
     setSprayMethod(report.sprayRecord?.applicationMethod ?? SPRAY_METHODS[0]);
     setSprayWaterVolume(report.sprayRecord?.waterVolume ?? '');
     setSprayNotes(report.sprayRecord?.notes ?? '');
+    setTrackName(report.trialTrack?.name ?? '');
+    setTrailPoints(report.trialTrack?.points ?? []);
+    setTrackingError(null);
     setShowForm(true);
   }
 
@@ -577,6 +692,10 @@ export default function Scouting({ data, updateData }: Props) {
       weedsPresent,
       priority,
       notes,
+      trialTrack: trailPoints.length > 0 ? {
+        name: (trackName || 'Trial Track').trim(),
+        points: trailPoints,
+      } : undefined,
       sprayApplicationId,
       sprayRecord: shouldSaveSpray ? {
         chemicals: cleanedChemicals,
@@ -597,7 +716,7 @@ export default function Scouting({ data, updateData }: Props) {
           fieldIds: [field.id],
           fieldNumbers: [field.fieldNumber],
           plannedDate: date,
-          appliedDate: date,
+          appliedDate: existingSpray?.status === 'applied' ? (existingSpray.appliedDate || date) : undefined,
           product: cleanedChemicals.map(c => c.name).join(', '),
           products: cleanedChemicals.map(c => c.name),
           chemicals: cleanedChemicals,
@@ -608,7 +727,7 @@ export default function Scouting({ data, updateData }: Props) {
           applicationMethod: sprayMethod,
           sprayer: '',
           operator: '',
-          status: 'applied',
+          status: existingSpray?.status ?? 'planned',
           priority,
           weatherAtApplication: '',
           notes: sprayNotes || `Created from scouting report ${report.fieldNumber} on ${date}`,
@@ -800,6 +919,35 @@ export default function Scouting({ data, updateData }: Props) {
                 </Suspense>
               </div>
 
+              <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <label className="form-label mb-0">Trial Track Recording</label>
+                  <div className="flex gap-2">
+                    {!isTrackingTrail ? (
+                      <button type="button" onClick={startTrailTracking} className="btn-secondary text-xs py-1.5">Start Tracking</button>
+                    ) : (
+                      <button type="button" onClick={stopTrailTracking} className="btn-danger text-xs py-1.5">Stop Tracking</button>
+                    )}
+                    <button type="button" onClick={() => setTrailPoints([])} className="btn-secondary text-xs py-1.5">Clear</button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="form-label">Track Name</label>
+                    <input
+                      className="form-input"
+                      value={trackName}
+                      onChange={e => setTrackName(e.target.value)}
+                      placeholder="e.g. Trial Strip A"
+                    />
+                  </div>
+                  <div className="text-sm text-gray-600 self-end pb-2">
+                    {trailPoints.length} point{trailPoints.length !== 1 ? 's' : ''} recorded
+                  </div>
+                </div>
+                {trackingError && <div className="text-sm text-red-600">{trackingError}</div>}
+              </div>
+
               {/* Crop-specific form */}
               {(fieldId || editingReport) && (
                 <div>
@@ -954,6 +1102,29 @@ export default function Scouting({ data, updateData }: Props) {
                   <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
                     {viewReport.weedsPresent?.join(', ')}
                   </div>
+                </div>
+              )}
+
+              {viewReport.trialTrack && viewReport.trialTrack.points.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-1">Trial Track</h3>
+                  <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 mb-2">
+                    <div><span className="text-gray-500">Name:</span> <span className="font-medium">{viewReport.trialTrack.name}</span></div>
+                    <div><span className="text-gray-500">Points:</span> <span className="font-medium">{viewReport.trialTrack.points.length}</span></div>
+                  </div>
+                  <Suspense fallback={null}>
+                    <GeoMap
+                      currentLocation={viewReport.trialTrack.points[viewReport.trialTrack.points.length - 1]}
+                      markers={viewReport.trialTrack.points.map((p, idx) => ({
+                        location: p,
+                        label: `${viewReport.trialTrack?.name} #${idx + 1}`,
+                        date: viewReport.date,
+                        color: '#2563eb',
+                      }))}
+                      height="200px"
+                      readonly
+                    />
+                  </Suspense>
                 </div>
               )}
 
