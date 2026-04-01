@@ -362,7 +362,7 @@ export default function GeoMap({
         mapInstanceRef.current.setView([pos.coords.latitude, pos.coords.longitude], mapInstanceRef.current.getZoom());
       }
     } catch (e: any) {
-      setError(e.code === 1 ? 'Location permission denied' : 'Unable to get location');
+      setError(e.code === 1 ? 'Location permission denied.' : 'Unable to record GPS location.');
     } finally {
       setLoading(false);
     }
