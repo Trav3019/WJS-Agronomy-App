@@ -47,10 +47,19 @@ export interface ScoutingReport {
   weedsPresent?: string[];
   priority: Priority;
   notes: string;
+  trialTrack?: ScoutingTrialTrack;
   sprayApplicationId?: string;
   sprayRecord?: ScoutingSprayRecord;
   cropData: CornScoutData | CanolaScoutData | SoyScoutData | WheatScoutData | EdibleBeanScoutData | OatsScoutData | PotatoScoutData;
   createdAt: string;
+}
+
+export interface ScoutingTrialTrack {
+  name: string;
+  points: GeoLocation[];
+  closedShape?: boolean;
+  pinPoints?: GeoLocation[];
+  pinLabels?: string[];
 }
 
 export interface ScoutingSprayRecord {
@@ -248,12 +257,18 @@ export interface SeedingEntry {
   seedingDirection?: 'North-South' | 'East-West';
   chemicalMix?: string;
   fieldTrials?: string;
+  tuberSize?: string;
+  tuberTemp?: number;
+  groundTemperature?: number;
+  seedCutDate?: string;
   seedingRate: number; // seeds/acre
   rowSpacing?: number; // inches
   seedDepth?: number; // inches
   population?: number; // seeds/acre
   location: GeoLocation;
+  pinInfo?: string;
   weather?: WeatherData;
+  trialTrack?: ScoutingTrialTrack;
   notes: string;
   createdAt: string;
 }
@@ -274,12 +289,32 @@ export interface HarvestReport {
   fieldId: string;
   fieldNumber: string;
   cropType: CropType;
+  variety?: string;
   date: string;
   yieldValue?: number;
+  totalCwt?: number;
   yieldUnit?: string;
   moisture?: number;
+  binNumber?: string;
+  quality?: string;
+  tuberDefects?: string[];
+  tuberTemp?: number;
+  weatherData?: string;
   notes?: string;
   createdAt: string;
+}
+
+export interface PotatoStorageBin {
+  id: string;
+  binNumber: string;
+  fieldNumber?: string;
+  variety?: string;
+  quantityCwt?: number;
+  storageTempC?: number;
+  status?: 'Good' | 'Monitor' | 'Issue';
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface AppData {
@@ -290,4 +325,7 @@ export interface AppData {
   seedingEntries: SeedingEntry[];
   tillageReports: TillageReport[];
   harvestReports: HarvestReport[];
+  potatoStorageBins: PotatoStorageBin[];
+  customBins: string[];
+  customBinCapacities: Record<string, number>;
 }
