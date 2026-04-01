@@ -1,4 +1,4 @@
-import type { AppData, Field, ScoutingReport, PotatoYieldReport, SprayApplication, SeedingEntry, TillageReport, HarvestReport } from '../types';
+import type { AppData, Field, ScoutingReport, PotatoYieldReport, SprayApplication, SeedingEntry, TillageReport, HarvestReport, PotatoStorageBin } from '../types';
 
 const STORAGE_KEY = 'wjs-agronomy-data';
 
@@ -10,6 +10,9 @@ const defaultData: AppData = {
   seedingEntries: [],
   tillageReports: [],
   harvestReports: [],
+  potatoStorageBins: [],
+  customBins: [],
+  customBinCapacities: {},
 };
 
 export function loadData(): AppData {
@@ -124,4 +127,17 @@ export function saveHarvestReport(data: AppData, report: HarvestReport): AppData
 
 export function deleteHarvestReport(data: AppData, id: string): AppData {
   return { ...data, harvestReports: data.harvestReports.filter(r => r.id !== id) };
+}
+
+// Potato storage bins
+export function savePotatoStorageBin(data: AppData, bin: PotatoStorageBin): AppData {
+  const idx = data.potatoStorageBins.findIndex(b => b.id === bin.id);
+  const updated = idx >= 0
+    ? data.potatoStorageBins.map(b => b.id === bin.id ? bin : b)
+    : [...data.potatoStorageBins, bin];
+  return { ...data, potatoStorageBins: updated };
+}
+
+export function deletePotatoStorageBin(data: AppData, id: string): AppData {
+  return { ...data, potatoStorageBins: data.potatoStorageBins.filter(b => b.id !== id) };
 }
