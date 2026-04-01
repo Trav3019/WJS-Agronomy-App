@@ -17,6 +17,9 @@ const CROP_EMOJI: Record<string, string> = {
   'Edible Beans': '🫘', Oats: '🌾', Potatoes: '🥔',
 };
 
+const TABLE_GRADES = ['>2"', '2.25"', '2.5"', '2.75"', '3"', '3.25"', '<3.5"'];
+const PROC_GRADES = ['2oz', '3oz', '4oz', '5oz', '6oz', '7oz', '8oz', '9oz', '10oz', '11oz', '12oz'];
+
 function toDisplayLabel(value: string): string {
   const spaced = value.replace(/([A-Z])/g, ' $1').trim();
   return spaced ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : spaced;
@@ -410,21 +413,65 @@ export default function Dashboard({ data }: Props) {
 
       {viewSpray && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-start justify-center z-50 p-2 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full max-w-xl my-0 sm:my-4 max-h-[92vh] overflow-hidden">
+          <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full max-w-2xl my-0 sm:my-4 max-h-[92vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 sm:p-5 border-b">
-              <h2 className="text-base sm:text-lg font-semibold">Spray Detail</h2>
+              <h2 className="text-base sm:text-lg font-semibold">Spray Report</h2>
               <button onClick={() => setViewSpray(null)} className="text-gray-400 hover:text-gray-600 p-1.5 -mr-1">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="p-4 sm:p-5 space-y-3 text-sm overflow-y-auto max-h-[calc(92vh-72px)]">
-              <div><span className="text-gray-500">Product:</span> <span className="font-medium">{viewSpray.product}</span></div>
-              <div><span className="text-gray-500">Status:</span> <span className="font-medium capitalize">{viewSpray.status}</span></div>
-              <div><span className="text-gray-500">Priority:</span> <span className="font-medium capitalize">{viewSpray.priority}</span></div>
-              <div><span className="text-gray-500">Planned Date:</span> <span className="font-medium">{viewSpray.plannedDate}</span></div>
-              {viewSpray.appliedDate && <div><span className="text-gray-500">Applied Date:</span> <span className="font-medium">{viewSpray.appliedDate}</span></div>}
-              <div><span className="text-gray-500">Fields:</span> <span className="font-medium">{viewSpray.fieldNumbers.length ? viewSpray.fieldNumbers.join(', ') : 'All fields'}</span></div>
-              {viewSpray.notes && <div><span className="text-gray-500">Notes:</span> <span className="font-medium">{viewSpray.notes}</span></div>}
+            <div className="p-4 sm:p-5 space-y-4 text-sm overflow-y-auto max-h-[calc(92vh-72px)]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div><span className="text-gray-500">Status:</span> <span className="font-medium capitalize">{viewSpray.status}</span></div>
+                <div><span className="text-gray-500">Priority:</span> <span className="font-medium capitalize">{viewSpray.priority}</span></div>
+                <div><span className="text-gray-500">Planned Date:</span> <span className="font-medium">{viewSpray.plannedDate}</span></div>
+                <div><span className="text-gray-500">Applied Date:</span> <span className="font-medium">{viewSpray.appliedDate || '-'}</span></div>
+                <div className="sm:col-span-2"><span className="text-gray-500">Fields:</span> <span className="font-medium">{viewSpray.fieldNumbers.length ? viewSpray.fieldNumbers.join(', ') : 'All fields'}</span></div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Chemicals</h3>
+                {(viewSpray.chemicals?.length ?? 0) > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="text-left px-3 py-2 border border-gray-200">Name</th>
+                          <th className="text-left px-3 py-2 border border-gray-200">Rate</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(viewSpray.chemicals ?? []).map((chem, idx) => (
+                          <tr key={`${chem.name}-${idx}`} className="hover:bg-gray-50">
+                            <td className="px-3 py-1.5 border border-gray-200">{chem.name || '-'}</td>
+                            <td className="px-3 py-1.5 border border-gray-200">{chem.rate ? `${chem.rate} L` : '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{viewSpray.product || 'No chemical list recorded.'}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div><span className="text-gray-500">Application Method:</span> <span className="font-medium">{viewSpray.applicationMethod || '-'}</span></div>
+                <div><span className="text-gray-500">Water Volume:</span> <span className="font-medium">{viewSpray.waterVolume || '-'}</span></div>
+                <div><span className="text-gray-500">Target Pest:</span> <span className="font-medium">{viewSpray.targetPest || '-'}</span></div>
+                <div><span className="text-gray-500">Active Ingredient:</span> <span className="font-medium">{viewSpray.activeIngredient || '-'}</span></div>
+                <div><span className="text-gray-500">Sprayer:</span> <span className="font-medium">{viewSpray.sprayer || '-'}</span></div>
+                <div><span className="text-gray-500">Operator:</span> <span className="font-medium">{viewSpray.operator || '-'}</span></div>
+                <div className="sm:col-span-2"><span className="text-gray-500">Weather at Application:</span> <span className="font-medium">{viewSpray.weatherAtApplication || '-'}</span></div>
+              </div>
+
+              {viewSpray.notes && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-1">Notes</h3>
+                  <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{viewSpray.notes}</p>
+                </div>
+              )}
+
               <Link to="/spray" onClick={() => setViewSpray(null)} className="text-sm text-green-700 hover:text-green-900 flex items-center gap-1 pt-2">
                 Open in Spray <ChevronRight className="h-4 w-4" />
               </Link>
@@ -435,20 +482,59 @@ export default function Dashboard({ data }: Props) {
 
       {viewSeeding && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-start justify-center z-50 p-2 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full max-w-xl my-0 sm:my-4 max-h-[92vh] overflow-hidden">
+          <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full max-w-2xl my-0 sm:my-4 max-h-[92vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 sm:p-5 border-b">
-              <h2 className="text-base sm:text-lg font-semibold">Seeding Detail</h2>
+              <h2 className="text-base sm:text-lg font-semibold">Seeding Report - Field {viewSeeding.fieldNumber}</h2>
               <button onClick={() => setViewSeeding(null)} className="text-gray-400 hover:text-gray-600 p-1.5 -mr-1">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="p-4 sm:p-5 space-y-3 text-sm overflow-y-auto max-h-[calc(92vh-72px)]">
-              <div><span className="text-gray-500">Field:</span> <span className="font-medium">{viewSeeding.fieldNumber}</span></div>
-              <div><span className="text-gray-500">Crop:</span> <span className="font-medium">{viewSeeding.cropType}</span></div>
-              {viewSeeding.variety && <div><span className="text-gray-500">Variety:</span> <span className="font-medium">{viewSeeding.variety}</span></div>}
-              <div><span className="text-gray-500">Date:</span> <span className="font-medium">{viewSeeding.seedingDate}</span></div>
-              {viewSeeding.seedingRate && <div><span className="text-gray-500">Seeding Rate:</span> <span className="font-medium">{viewSeeding.seedingRate}</span></div>}
-              {viewSeeding.notes && <div><span className="text-gray-500">Notes:</span> <span className="font-medium">{viewSeeding.notes}</span></div>}
+            <div className="p-4 sm:p-5 space-y-4 text-sm overflow-y-auto max-h-[calc(92vh-72px)]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div><span className="text-gray-500">Crop:</span> <span className="font-medium">{viewSeeding.cropType}</span></div>
+                <div><span className="text-gray-500">Variety:</span> <span className="font-medium">{viewSeeding.variety || '-'}</span></div>
+                <div><span className="text-gray-500">Seeding Date:</span> <span className="font-medium">{viewSeeding.seedingDate}</span></div>
+                <div><span className="text-gray-500">Direction:</span> <span className="font-medium">{viewSeeding.seedingDirection || '-'}</span></div>
+                <div><span className="text-gray-500">Seeding Rate:</span> <span className="font-medium">{viewSeeding.seedingRate}</span></div>
+                <div><span className="text-gray-500">Population:</span> <span className="font-medium">{viewSeeding.population ?? '-'}</span></div>
+                <div><span className="text-gray-500">Row Spacing:</span> <span className="font-medium">{viewSeeding.rowSpacing ?? '-'}{viewSeeding.rowSpacing ? ' in' : ''}</span></div>
+                <div><span className="text-gray-500">Seed Depth:</span> <span className="font-medium">{viewSeeding.seedDepth ?? '-'}{viewSeeding.seedDepth ? ' in' : ''}</span></div>
+                <div><span className="text-gray-500">Tuber Size:</span> <span className="font-medium">{viewSeeding.tuberSize || '-'}</span></div>
+                <div><span className="text-gray-500">Seed Cut Date:</span> <span className="font-medium">{viewSeeding.seedCutDate || '-'}</span></div>
+                <div><span className="text-gray-500">Tuber Temp:</span> <span className="font-medium">{viewSeeding.tuberTemp ?? '-'}{viewSeeding.tuberTemp !== undefined ? ' C' : ''}</span></div>
+                <div><span className="text-gray-500">Ground Temp:</span> <span className="font-medium">{viewSeeding.groundTemperature ?? '-'}{viewSeeding.groundTemperature !== undefined ? ' C' : ''}</span></div>
+                <div className="sm:col-span-2"><span className="text-gray-500">Chemical Mix:</span> <span className="font-medium">{viewSeeding.chemicalMix || '-'}</span></div>
+                <div className="sm:col-span-2"><span className="text-gray-500">Field Trials:</span> <span className="font-medium">{viewSeeding.fieldTrials || '-'}</span></div>
+                <div className="sm:col-span-2"><span className="text-gray-500">Pin Info:</span> <span className="font-medium">{viewSeeding.pinInfo || '-'}</span></div>
+              </div>
+
+              {viewSeeding.weather && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Weather</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-gray-50 rounded-lg p-3">
+                    <div><span className="text-gray-500">Temp:</span> <span className="font-medium">{viewSeeding.weather.temperature} C</span></div>
+                    <div><span className="text-gray-500">Precip:</span> <span className="font-medium">{viewSeeding.weather.precipitation} mm</span></div>
+                    <div><span className="text-gray-500">Wind:</span> <span className="font-medium">{viewSeeding.weather.windSpeed} km/h</span></div>
+                    <div><span className="text-gray-500">Humidity:</span> <span className="font-medium">{viewSeeding.weather.humidity ?? '-'}{viewSeeding.weather.humidity !== undefined ? '%' : ''}</span></div>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-1">Location</h3>
+                <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
+                  {viewSeeding.location.lat.toFixed(5)}, {viewSeeding.location.lng.toFixed(5)}
+                  {viewSeeding.location.accuracy !== undefined ? ` (±${Math.round(viewSeeding.location.accuracy)}m)` : ''}
+                </p>
+              </div>
+
+              {viewSeeding.notes && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-1">Notes</h3>
+                  <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{viewSeeding.notes}</p>
+                </div>
+              )}
+
               <Link to="/seeding-plan" onClick={() => setViewSeeding(null)} className="text-sm text-green-700 hover:text-green-900 flex items-center gap-1 pt-2">
                 Open in Seeding <ChevronRight className="h-4 w-4" />
               </Link>
@@ -459,18 +545,86 @@ export default function Dashboard({ data }: Props) {
 
       {viewYield && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-start justify-center z-50 p-2 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full max-w-xl my-0 sm:my-4 max-h-[92vh] overflow-hidden">
+          <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full max-w-2xl my-0 sm:my-4 max-h-[92vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 sm:p-5 border-b">
-              <h2 className="text-base sm:text-lg font-semibold">Potato Yield Detail</h2>
+              <h2 className="text-base sm:text-lg font-semibold">Yield Report - Field {viewYield.fieldNumber}</h2>
               <button onClick={() => setViewYield(null)} className="text-gray-400 hover:text-gray-600 p-1.5 -mr-1">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="p-4 sm:p-5 space-y-3 text-sm overflow-y-auto max-h-[calc(92vh-72px)]">
-              <div><span className="text-gray-500">Field:</span> <span className="font-medium">{viewYield.fieldNumber}</span></div>
-              <div><span className="text-gray-500">Date:</span> <span className="font-medium">{viewYield.date}</span></div>
-              <div><span className="text-gray-500">Potato Type:</span> <span className="font-medium">{viewYield.potatoType}</span></div>
-              <div><span className="text-gray-500">Estimated Yield:</span> <span className="font-medium">{viewYield.estimatedYield.toFixed(1)} cwt/ac</span></div>
+            <div className="p-4 sm:p-5 space-y-4 text-sm overflow-y-auto max-h-[calc(92vh-72px)]">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                <div><span className="text-gray-500">Date:</span> <span className="font-medium">{viewYield.date}</span></div>
+                <div><span className="text-gray-500">Type:</span> <span className="font-medium capitalize">{viewYield.potatoType}</span></div>
+                <div><span className="text-gray-500">Variety:</span> <span className="font-medium">{viewYield.variety || '-'}</span></div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Grade Breakdown</h3>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="text-left px-3 py-2 border border-gray-200">Grade</th>
+                        <th className="text-left px-3 py-2 border border-gray-200">Count</th>
+                        <th className="text-left px-3 py-2 border border-gray-200">Weight (lbs)</th>
+                        <th className="text-left px-3 py-2 border border-gray-200">% Weight</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(viewYield.potatoType === 'table' ? TABLE_GRADES : PROC_GRADES).map(grade => {
+                        const count = viewYield.grades[grade] ?? 0;
+                        const weight = viewYield.gradeWeights[grade] ?? 0;
+                        const pct = viewYield.totalTuberWeight > 0 ? ((weight / viewYield.totalTuberWeight) * 100).toFixed(1) : '0.0';
+                        if (count === 0 && weight === 0) return null;
+                        return (
+                          <tr key={grade} className="hover:bg-gray-50">
+                            <td className="px-3 py-1.5 border border-gray-200 font-medium">{grade}</td>
+                            <td className="px-3 py-1.5 border border-gray-200">{count}</td>
+                            <td className="px-3 py-1.5 border border-gray-200">{weight.toFixed(2)}</td>
+                            <td className="px-3 py-1.5 border border-gray-200">{pct}%</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-green-50 font-semibold">
+                        <td className="px-3 py-2 border border-gray-200">TOTALS</td>
+                        <td className="px-3 py-2 border border-gray-200">{viewYield.totalTuberCount}</td>
+                        <td className="px-3 py-2 border border-gray-200">{viewYield.totalTuberWeight.toFixed(2)} lbs</td>
+                        <td className="px-3 py-2 border border-gray-200">100%</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+
+              <div className="bg-green-50 rounded-xl p-4 border border-green-200 text-center">
+                <div className="text-sm text-green-700 font-medium">Estimated Yield</div>
+                <div className="text-3xl sm:text-4xl font-bold text-green-800 my-1">{viewYield.estimatedYield.toFixed(1)} cwt/acre</div>
+                <div className="text-xs sm:text-sm text-green-600">
+                  approx {(viewYield.estimatedYield / 20).toFixed(2)} tons/ac | approx {(viewYield.estimatedYield * 100).toFixed(0)} lbs/ac
+                </div>
+              </div>
+
+              {(viewYield.photos?.length ?? 0) > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Photos ({viewYield.photos?.length ?? 0})</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {(viewYield.photos ?? []).map((photo, i) => (
+                      <img key={`${viewYield.id}-photo-${i}`} src={photo} alt={`Yield report photo ${i + 1}`} className="photo-thumbnail" />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {viewYield.notes && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-1">Notes</h3>
+                  <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{viewYield.notes}</p>
+                </div>
+              )}
+
               <Link to="/potato-yield" onClick={() => setViewYield(null)} className="text-sm text-green-700 hover:text-green-900 flex items-center gap-1 pt-2">
                 Open in Potato Yield <ChevronRight className="h-4 w-4" />
               </Link>
