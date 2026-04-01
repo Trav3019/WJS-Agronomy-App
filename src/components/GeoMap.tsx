@@ -211,27 +211,47 @@ export default function GeoMap({
     );
   }, [mapReady, readonly, startAtCurrentLocation]);
 
-  // Update map when location changes and show current location dot
+  // Read-only maps: center/zoom to fit all available points on screen.
+  useEffect(() => {
+    if (!mapReady || !mapInstanceRef.current || !readonly) return;
+
+    const map = mapInstanceRef.current;
+    const points: Array<[number, number]> = [
+      ...markers.map(m => [m.location.lat, m.location.lng] as [number, number]),
+      ...trailPoints.map(p => [p.lat, p.lng] as [number, number]),
+      ...pinPoints.map(p => [p.lat, p.lng] as [number, number]),
+      ...(currentLocation ? [[currentLocation.lat, currentLocation.lng] as [number, number]] : []),
+    ];
+
+    if (points.length === 0) return;
+
+    if (points.length === 1) {
+      map.setView(points[0], 14, { animate: false });
+      return;
+    }
+
+    map.fitBounds(points, {
+      padding: [28, 28],
+      maxZoom: 16,
+      animate: false,
+    });
+  }, [mapReady, readonly, markers, trailPoints, pinPoints, currentLocation]);
+
+  // Update map when location changes and show a saved-location pin
   useEffect(() => {
     if (!mapInstanceRef.current || !currentLocation || !mapReady) return;
     const map = mapInstanceRef.current;
     const currentZoom = map.getZoom();
     map.setView([currentLocation.lat, currentLocation.lng], currentZoom, { animate: false });
 
-    // Always show current location as a blue dot
+    // Show the saved location as a marker pin.
     if (currentMarkerRef.current) {
       currentMarkerRef.current.setLatLng([currentLocation.lat, currentLocation.lng]);
     } else {
       import('leaflet').then(L => {
-        const icon = L.divIcon({
-          className: '',
-          html: `<div style="width:12px;height:12px;border-radius:50%;background:#3b82f6;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.4)"></div>`,
-          iconSize: [12, 12],
-          iconAnchor: [6, 6],
-        });
-        currentMarkerRef.current = L.marker([currentLocation.lat, currentLocation.lng], { icon })
+        currentMarkerRef.current = L.marker([currentLocation.lat, currentLocation.lng])
           .addTo(map)
-          .bindPopup('Your Current Location');
+          .bindPopup('Saved GPS Location');
       });
     }
   }, [currentLocation, mapReady]);
@@ -357,7 +377,16 @@ export default function GeoMap({
         })
       );
 
-      // Only pan the map — do not drop a pin or add a point
+      const point: GeoLocation = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+      };
+
+      // Persist the saved GPS location so the parent form stores it.
+      onLocationCapture?.(point);
+
+      // Pan map to the saved point.
       if (mapInstanceRef.current) {
         mapInstanceRef.current.setView([pos.coords.latitude, pos.coords.longitude], mapInstanceRef.current.getZoom());
       }
