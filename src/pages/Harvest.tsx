@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import type { AppData, HarvestReport } from '../types';
+import { useEffect, useState } from 'react';
+import type { AppData, HarvestReport, WeatherData } from '../types';
 import { generateId, saveHarvestReport, deleteHarvestReport } from '../utils/storage';
+import { getHistoricalWeather } from '../utils/weather';
+import { VARIETIES_BY_CROP } from '../utils/varieties';
 import { Plus, Trash2, Eye, X } from 'lucide-react';
 
 interface Props {
@@ -9,29 +11,54 @@ interface Props {
 }
 
 const YIELD_UNITS = ['bu/ac', 't/ac', 'lbs/ac'];
+const POTATO_QUALITY_OPTIONS = ['Excellent', 'Good', 'Fair', 'Poor', 'Cull'];
+const POTATO_BIN_OPTIONS = ['M1', 'M2', 'M3', 'M4', 'CL1', 'CL2', 'J2', 'J3', 'J4'];
+const POTATO_TUBER_DEFECT_OPTIONS = ['Greening', 'Hollow Heart', 'Scab', 'Rhizoctonia', 'Growth Cracks', 'Misshapen', 'Bruising', 'Rot'];
 
 export default function Harvest({ data, updateData }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [viewReport, setViewReport] = useState<HarvestReport | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [fieldFilter, setFieldFilter] = useState('');
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherError, setWeatherError] = useState<string | null>(null);
+  const [weatherSnapshot, setWeatherSnapshot] = useState<WeatherData | null>(null);
+  const [weatherRefreshKey, setWeatherRefreshKey] = useState(0);
+  const orderedFields = [...data.fields].sort((a, b) =>
+    a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' })
+  );
   const [form, setForm] = useState({
     fieldId: '',
+    variety: '',
     date: new Date().toISOString().split('T')[0],
     yieldValue: '',
+    totalCwt: '',
     yieldUnit: YIELD_UNITS[0],
     moisture: '',
+    binNumber: '',
+    quality: '',
+    tuberDefects: [] as string[],
+    tuberTemp: '',
+    weatherData: '',
     notes: '',
   });
 
   function openNew() {
     setEditingId(null);
+    setWeatherSnapshot(null);
     setForm({
       fieldId: '',
+      variety: '',
       date: new Date().toISOString().split('T')[0],
       yieldValue: '',
+      totalCwt: '',
       yieldUnit: YIELD_UNITS[0],
       moisture: '',
+      binNumber: '',
+      quality: '',
+      tuberDefects: [],
+      tuberTemp: '',
+      weatherData: '',
       notes: '',
     });
     setShowForm(true);
@@ -39,12 +66,20 @@ export default function Harvest({ data, updateData }: Props) {
 
   function openEdit(report: HarvestReport) {
     setEditingId(report.id);
+    setWeatherSnapshot(null);
     setForm({
       fieldId: report.fieldId,
+      variety: report.variety ?? '',
       date: report.date,
       yieldValue: report.yieldValue?.toString() ?? '',
+      totalCwt: report.totalCwt?.toString() ?? '',
       yieldUnit: report.yieldUnit ?? YIELD_UNITS[0],
       moisture: report.moisture?.toString() ?? '',
+      binNumber: report.binNumber ?? '',
+      quality: report.quality ?? '',
+      tuberDefects: report.tuberDefects ?? [],
+      tuberTemp: report.tuberTemp?.toString() ?? '',
+      weatherData: report.weatherData ?? '',
       notes: report.notes ?? '',
     });
     setShowForm(true);
@@ -59,10 +94,17 @@ export default function Harvest({ data, updateData }: Props) {
       fieldId: selectedField.id,
       fieldNumber: selectedField.fieldNumber,
       cropType: selectedField.cropType,
+      variety: form.variety.trim() || selectedField.variety || undefined,
       date: form.date,
       yieldValue: form.yieldValue ? Number(form.yieldValue) : undefined,
-      yieldUnit: form.yieldUnit,
-      moisture: form.moisture ? Number(form.moisture) : undefined,
+      totalCwt: selectedField.cropType === 'Potatoes' ? (form.totalCwt ? Number(form.totalCwt) : undefined) : undefined,
+      yieldUnit: selectedField.cropType === 'Potatoes' ? undefined : form.yieldUnit,
+      moisture: selectedField.cropType === 'Potatoes' ? undefined : (form.moisture ? Number(form.moisture) : undefined),
+      binNumber: selectedField.cropType === 'Potatoes' ? (form.binNumber.trim() || undefined) : undefined,
+      quality: selectedField.cropType === 'Potatoes' ? (form.quality.trim() || undefined) : undefined,
+      tuberDefects: selectedField.cropType === 'Potatoes' ? (form.tuberDefects.length ? form.tuberDefects : undefined) : undefined,
+      tuberTemp: selectedField.cropType === 'Potatoes' ? (form.tuberTemp ? Number(form.tuberTemp) : undefined) : undefined,
+      weatherData: selectedField.cropType === 'Potatoes' ? (form.weatherData.trim() || undefined) : undefined,
       notes: form.notes.trim() || undefined,
       createdAt: editingId
         ? (data.harvestReports.find(r => r.id === editingId)?.createdAt ?? now)
@@ -80,6 +122,82 @@ export default function Harvest({ data, updateData }: Props) {
   const reports = data.harvestReports
     .filter(r => !fieldFilter || r.fieldNumber.toLowerCase().includes(fieldFilter.toLowerCase()))
     .sort((a, b) => b.date.localeCompare(a.date));
+  const selectedFieldForForm = data.fields.find(f => f.id === form.fieldId);
+  const varietyOptions = selectedFieldForForm ? (VARIETIES_BY_CROP[selectedFieldForForm.cropType] ?? []) : [];
+  const isPotatoHarvest = selectedFieldForForm?.cropType === 'Potatoes';
+  const fallbackSeedingLocation = selectedFieldForForm
+    ? [...data.seedingEntries]
+        .filter(entry => entry.fieldId === selectedFieldForForm.id && entry.location)
+        .sort((a, b) => b.seedingDate.localeCompare(a.seedingDate))[0]?.location
+    : undefined;
+  const fallbackScoutingLocation = selectedFieldForForm
+    ? [...data.scoutingReports]
+        .filter(report => report.fieldId === selectedFieldForForm.id && report.location)
+        .sort((a, b) => b.date.localeCompare(a.date))[0]?.location
+    : undefined;
+  const weatherLocation = selectedFieldForForm?.location ?? fallbackSeedingLocation ?? fallbackScoutingLocation;
+
+  function refreshWeather() {
+    setWeatherRefreshKey(prev => prev + 1);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function autoPopulateWeather() {
+      if (!showForm || !isPotatoHarvest) {
+        setWeatherLoading(false);
+        setWeatherError(null);
+        setWeatherSnapshot(null);
+        return;
+      }
+
+      if (!weatherLocation || !form.date) {
+        if (!cancelled) {
+          setWeatherLoading(false);
+          setWeatherError('Set date and save GPS in Field, Seeding, or Scouting to auto-populate weather.');
+          setWeatherSnapshot(null);
+        }
+        return;
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+      if (form.date > today) {
+        if (!cancelled) {
+          setWeatherLoading(false);
+          setWeatherError('Historical weather is only available for today or earlier dates.');
+          setWeatherSnapshot(null);
+        }
+        return;
+      }
+
+      setWeatherLoading(true);
+      setWeatherError(null);
+      try {
+        const weather = await getHistoricalWeather(weatherLocation.lat, weatherLocation.lng, form.date);
+        if (cancelled) return;
+
+        const summary = `${weather.temperature.toFixed(1)} C avg (${weather.temperatureMin?.toFixed(1)} to ${weather.temperatureMax?.toFixed(1)} C), ${weather.precipitation.toFixed(1)} mm rain, ${weather.windSpeed.toFixed(0)} km/h wind`;
+        setWeatherSnapshot(weather);
+        setForm(prev => ({ ...prev, weatherData: summary }));
+      } catch {
+        if (!cancelled) {
+          setWeatherError('Failed to auto-populate weather data.');
+          setWeatherSnapshot(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setWeatherLoading(false);
+        }
+      }
+    }
+
+    void autoPopulateWeather();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showForm, isPotatoHarvest, weatherLocation?.lat, weatherLocation?.lng, form.date, weatherRefreshKey]);
 
   return (
     <div className="space-y-5">
@@ -149,7 +267,14 @@ export default function Harvest({ data, updateData }: Props) {
                   <label className="form-label">Field</label>
                   <select className="form-input" value={form.fieldId} onChange={e => setForm(f => ({ ...f, fieldId: e.target.value }))}>
                     <option value="">Select field...</option>
-                    {data.fields.map(f => <option key={f.id} value={f.id}>{f.fieldNumber} - {f.cropType}</option>)}
+                    {orderedFields.map(f => <option key={f.id} value={f.id}>{f.fieldNumber} - {f.cropType}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Variety</label>
+                  <select className="form-input" value={form.variety} onChange={e => setForm(f => ({ ...f, variety: e.target.value }))}>
+                    <option value="">Select variety...</option>
+                    {varietyOptions.map(v => <option key={v} value={v}>{v}</option>)}
                   </select>
                 </div>
                 <div>
@@ -160,16 +285,90 @@ export default function Harvest({ data, updateData }: Props) {
                   <label className="form-label">Yield</label>
                   <input type="number" step="0.1" className="form-input" value={form.yieldValue} onChange={e => setForm(f => ({ ...f, yieldValue: e.target.value }))} placeholder="Optional" />
                 </div>
-                <div>
-                  <label className="form-label">Yield Unit</label>
-                  <select className="form-input" value={form.yieldUnit} onChange={e => setForm(f => ({ ...f, yieldUnit: e.target.value }))}>
-                    {YIELD_UNITS.map(u => <option key={u}>{u}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="form-label">Moisture (%)</label>
-                  <input type="number" step="0.1" className="form-input" value={form.moisture} onChange={e => setForm(f => ({ ...f, moisture: e.target.value }))} placeholder="Optional" />
-                </div>
+                {isPotatoHarvest ? (
+                  <>
+                    <div>
+                      <label className="form-label">Bin #</label>
+                      <select className="form-input" value={form.binNumber} onChange={e => setForm(f => ({ ...f, binNumber: e.target.value }))}>
+                        <option value="">Select bin...</option>
+                        {[...POTATO_BIN_OPTIONS, ...(data.customBins ?? [])].map(bin => <option key={bin} value={bin}>{bin}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="form-label">Quality</label>
+                      <select className="form-input" value={form.quality} onChange={e => setForm(f => ({ ...f, quality: e.target.value }))}>
+                        <option value="">Select quality...</option>
+                        {POTATO_QUALITY_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="form-label">Tuber Temp</label>
+                      <input type="number" step="0.1" className="form-input" value={form.tuberTemp} onChange={e => setForm(f => ({ ...f, tuberTemp: e.target.value }))} placeholder="Optional" />
+                    </div>
+                    <div>
+                      <label className="form-label">Total CWT</label>
+                      <input type="number" step="0.1" className="form-input" value={form.totalCwt} onChange={e => setForm(f => ({ ...f, totalCwt: e.target.value }))} placeholder="Optional" />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="form-label">Tuber Defects</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                        {POTATO_TUBER_DEFECT_OPTIONS.map(defect => (
+                          <label key={defect} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="accent-green-600"
+                              checked={form.tuberDefects.includes(defect)}
+                              onChange={e => setForm(prev => ({
+                                ...prev,
+                                tuberDefects: e.target.checked
+                                  ? [...prev.tuberDefects, defect]
+                                  : prev.tuberDefects.filter(d => d !== defect),
+                              }))}
+                            />
+                            <span>{defect}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between gap-3">
+                        <label className="form-label mb-0">Weather Data</label>
+                        <button type="button" onClick={refreshWeather} className="btn-secondary text-xs py-1.5 px-2.5" disabled={weatherLoading}>
+                          {weatherLoading ? 'Updating...' : 'Refresh Weather'}
+                        </button>
+                      </div>
+                      {weatherSnapshot ? (
+                        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 mt-1">
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                            <div><span className="text-gray-500">Avg Temp:</span> <span className="font-medium">{weatherSnapshot.temperature.toFixed(1)} C</span></div>
+                            <div><span className="text-gray-500">Min/Max:</span> <span className="font-medium">{weatherSnapshot.temperatureMin?.toFixed(1)} / {weatherSnapshot.temperatureMax?.toFixed(1)} C</span></div>
+                            <div><span className="text-gray-500">Rain:</span> <span className="font-medium">{weatherSnapshot.precipitation.toFixed(1)} mm</span></div>
+                            <div><span className="text-gray-500">Wind:</span> <span className="font-medium">{weatherSnapshot.windSpeed.toFixed(0)} km/h</span></div>
+                          </div>
+                        </div>
+                      ) : form.weatherData ? (
+                        <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 mt-1 text-sm text-gray-700">
+                          {form.weatherData}
+                        </div>
+                      ) : null}
+                      {weatherLoading && <p className="text-xs text-gray-500 mt-1">Auto-populating weather...</p>}
+                      {!weatherLoading && weatherError && <p className="text-xs text-red-600 mt-1">{weatherError}</p>}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="form-label">Yield Unit</label>
+                      <select className="form-input" value={form.yieldUnit} onChange={e => setForm(f => ({ ...f, yieldUnit: e.target.value }))}>
+                        {YIELD_UNITS.map(u => <option key={u}>{u}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="form-label">Moisture (%)</label>
+                      <input type="number" step="0.1" className="form-input" value={form.moisture} onChange={e => setForm(f => ({ ...f, moisture: e.target.value }))} placeholder="Optional" />
+                    </div>
+                  </>
+                )}
               </div>
 
               <div>
@@ -197,9 +396,16 @@ export default function Harvest({ data, updateData }: Props) {
             </div>
             <div className="p-5 space-y-2 text-sm">
               <div><span className="text-gray-500">Crop:</span> <span className="font-medium">{viewReport.cropType}</span></div>
+              {viewReport.variety && <div><span className="text-gray-500">Variety:</span> <span className="font-medium">{viewReport.variety}</span></div>}
               <div><span className="text-gray-500">Date:</span> <span className="font-medium">{viewReport.date}</span></div>
               {viewReport.yieldValue !== undefined && <div><span className="text-gray-500">Yield:</span> <span className="font-medium">{viewReport.yieldValue} {viewReport.yieldUnit ?? ''}</span></div>}
               {viewReport.moisture !== undefined && <div><span className="text-gray-500">Moisture:</span> <span className="font-medium">{viewReport.moisture}%</span></div>}
+              {viewReport.cropType === 'Potatoes' && viewReport.binNumber && <div><span className="text-gray-500">Bin #:</span> <span className="font-medium">{viewReport.binNumber}</span></div>}
+              {viewReport.cropType === 'Potatoes' && viewReport.totalCwt !== undefined && <div><span className="text-gray-500">Total CWT:</span> <span className="font-medium">{viewReport.totalCwt}</span></div>}
+              {viewReport.cropType === 'Potatoes' && viewReport.quality && <div><span className="text-gray-500">Quality:</span> <span className="font-medium">{viewReport.quality}</span></div>}
+              {viewReport.cropType === 'Potatoes' && viewReport.tuberDefects?.length && <div><span className="text-gray-500">Tuber Defects:</span> <span className="font-medium">{viewReport.tuberDefects.join(', ')}</span></div>}
+              {viewReport.cropType === 'Potatoes' && viewReport.tuberTemp !== undefined && <div><span className="text-gray-500">Tuber Temp:</span> <span className="font-medium">{viewReport.tuberTemp}</span></div>}
+              {viewReport.cropType === 'Potatoes' && viewReport.weatherData && <div><span className="text-gray-500">Weather Data:</span> <span className="font-medium">{viewReport.weatherData}</span></div>}
               {viewReport.notes && <div className="bg-gray-50 rounded-lg p-3 text-gray-600 mt-2">{viewReport.notes}</div>}
             </div>
             <div className="flex justify-end gap-3 p-5 border-t bg-gray-50">
