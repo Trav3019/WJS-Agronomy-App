@@ -150,7 +150,7 @@ export default function PotatoYield({ data, updateData }: Props) {
       <div className="space-y-3">
         {filtered.length === 0 ? (
           <div className="card text-center py-12 text-gray-400">
-            No potato yield reports yet. Click "New Report" to get started.
+            No potato yield reports yet. Click "New Report" to add one.
           </div>
         ) : filtered.map(report => (
           <div key={report.id} className="card hover:shadow-md transition-shadow">
@@ -174,7 +174,7 @@ export default function PotatoYield({ data, updateData }: Props) {
                     <div className="font-semibold">{report.totalTuberWeight.toFixed(1)} lbs</div>
                   </div>
                   <div>
-                    <div className="text-xs text-gray-500">Est. Yield</div>
+                    <div className="text-xs text-gray-500">Estimated Yield</div>
                     <div className="font-semibold text-green-700">{report.estimatedYield.toFixed(1)} cwt/ac</div>
                   </div>
                 </div>
