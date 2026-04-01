@@ -1,14 +1,13 @@
-import { useState, lazy, Suspense } from 'react';
-import type { AppData, SeedingEntry, CropType, WeatherData } from '../types';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import type { AppData, SeedingEntry, CropType, WeatherData, GeoLocation } from '../types';
 import { generateId, saveSeedingEntry, deleteSeedingEntry } from '../utils/storage';
 import { getHistoricalWeather } from '../utils/weather';
 import { VARIETIES_BY_CROP } from '../utils/varieties';
-import { CalendarDays, Plus, X, Trash2, Eye, Cloud, Loader2, MapPin, AlertCircle } from 'lucide-react';
+import { CalendarDays, Plus, X, Trash2, Eye, Cloud, Loader2, MapPin, AlertCircle, Zap, CheckCircle2 } from 'lucide-react';
 
 const GeoMap = lazy(() => import('../components/GeoMap'));
 
 const CROPS: CropType[] = ['Corn', 'Canola', 'Soybeans', 'Wheat', 'Edible Beans', 'Oats', 'Potatoes'];
-const SEEDING_DIRECTIONS: Array<'North-South' | 'East-West'> = ['North-South', 'East-West'];
 
 interface Props {
   data: AppData;
@@ -21,15 +20,17 @@ const emptyEntry = (): Omit<SeedingEntry, 'id' | 'createdAt'> => ({
   cropType: 'Corn',
   variety: '',
   seedingDate: new Date().toISOString().split('T')[0],
-  seedingDirection: 'North-South',
-  chemicalMix: '',
   fieldTrials: '',
+  tuberSize: '',
+  tuberTemp: undefined,
+  groundTemperature: undefined,
+  seedCutDate: '',
   seedingRate: 0,
   rowSpacing: undefined,
   seedDepth: undefined,
-  population: undefined,
   location: { lat: 0, lng: 0 },
   weather: undefined,
+  trialTrack: undefined,
   notes: '',
 });
 
@@ -70,6 +71,19 @@ function WeatherCard({ weather }: { weather: WeatherData }) {
   );
 }
 
+function distanceMeters(a: GeoLocation, b: GeoLocation) {
+  const toRad = (v: number) => v * (Math.PI / 180);
+  const r = 6371000; // Earth radius in meters
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const x = Math.sin(dLat / 2) * Math.sin(dLat / 2) + 
+            Math.sin(dLng / 2) * Math.sin(dLng / 2) * Math.cos(lat1) * Math.cos(lat2);
+  const c = 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+  return r * c;
+}
+
 export default function Seeding({ data, updateData }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [viewEntry, setViewEntry] = useState<SeedingEntry | null>(null);
@@ -78,12 +92,70 @@ export default function Seeding({ data, updateData }: Props) {
   const [loadingWeather, setLoadingWeather] = useState(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
   const [filterCrop, setFilterCrop] = useState<CropType | ''>('');
+  const [trackName, setTrackName] = useState('Seeding Trial');
+  const [trialPoints, setTrialPoints] = useState<GeoLocation[]>([]);
+  const [isTrackingTrial, setIsTrackingTrial] = useState(false);
+  const [trackingError, setTrackingError] = useState<string | null>(null);
+  const watchIdRef = useRef<number | null>(null);
+  const orderedFields = [...data.fields].sort((a, b) =>
+    a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' })
+  );
   const varietyOptions = VARIETIES_BY_CROP[form.cropType] ?? [];
+
+  // Clean up geolocation watch on component unmount
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, []);
+
+  function startTrialTracking() {
+    setIsTrackingTrial(true);
+    setTrackingError(null);
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      pos => {
+        const point: GeoLocation = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+        };
+        setTrialPoints(prev => {
+          if (prev.length === 0) return [point];
+          const last = prev[prev.length - 1];
+          if (distanceMeters(last, point) < 3) return prev; // 3m deduplication
+          return [...prev, point];
+        });
+      },
+      err => {
+        if (err.code === 1) {
+          setTrackingError('Location permission denied.');
+        } else {
+          setTrackingError('Unable to access GPS location.');
+        }
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+    );
+  }
+
+  function stopTrialTracking() {
+    if (watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    setIsTrackingTrial(false);
+  }
 
   function openNew() {
     setEditingId(null);
     setForm(emptyEntry());
     setWeatherError(null);
+    setTrackName('Seeding Trial');
+    setTrialPoints([]);
+    setIsTrackingTrial(false);
+    setTrackingError(null);
+    stopTrialTracking();
     setShowForm(true);
   }
 
@@ -95,23 +167,33 @@ export default function Seeding({ data, updateData }: Props) {
       cropType: entry.cropType,
       variety: entry.variety,
       seedingDate: entry.seedingDate,
-      seedingDirection: entry.seedingDirection ?? 'North-South',
-      chemicalMix: entry.chemicalMix ?? '',
       fieldTrials: entry.fieldTrials ?? '',
+      tuberSize: entry.tuberSize ?? '',
+      tuberTemp: entry.tuberTemp,
+      groundTemperature: entry.groundTemperature,
+      seedCutDate: entry.seedCutDate ?? '',
       seedingRate: entry.seedingRate,
       rowSpacing: entry.rowSpacing,
       seedDepth: entry.seedDepth,
-      population: entry.population,
       location: entry.location,
       weather: entry.weather,
+      trialTrack: entry.trialTrack,
       notes: entry.notes,
     });
+    if (entry.trialTrack) {
+      setTrackName(entry.trialTrack.name);
+      setTrialPoints(entry.trialTrack.points);
+    } else {
+      setTrackName('Seeding Trial');
+      setTrialPoints([]);
+    }
     setWeatherError(null);
     setShowForm(true);
   }
 
   function handleFieldSelect(fieldId: string) {
     const field = data.fields.find(f => f.id === fieldId);
+    const nextCropType = field?.cropType;
     setForm(f => ({
       ...f,
       fieldId,
@@ -119,11 +201,15 @@ export default function Seeding({ data, updateData }: Props) {
       cropType: field?.cropType ?? f.cropType,
       variety: field?.variety ?? f.variety,
       location: field?.location ?? f.location,
+      tuberSize: nextCropType === 'Potatoes' ? f.tuberSize : '',
+      tuberTemp: nextCropType === 'Potatoes' ? f.tuberTemp : undefined,
+      groundTemperature: nextCropType === 'Potatoes' ? f.groundTemperature : undefined,
+      seedCutDate: nextCropType === 'Potatoes' ? f.seedCutDate : '',
     }));
   }
 
   async function fetchWeather() {
-    if (!form.location?.lat || !form.location?.lng || !form.seedingDate) {
+    if (form.location?.lat == null || form.location?.lng == null || !form.seedingDate) {
       setWeatherError('Set a GPS location and date first');
       return;
     }
@@ -152,12 +238,14 @@ export default function Seeding({ data, updateData }: Props) {
     const entry: SeedingEntry = {
       id: editingId ?? generateId(),
       ...form,
+      trialTrack: trialPoints.length > 0 ? { name: trackName, points: trialPoints } : undefined,
       createdAt: editingId
         ? (data.seedingEntries.find(e => e.id === editingId)?.createdAt ?? now)
         : now,
     };
     updateData(prev => saveSeedingEntry(prev, entry));
     setShowForm(false);
+    stopTrialTracking();
   }
 
   function handleDelete(id: string) {
@@ -210,14 +298,20 @@ export default function Seeding({ data, updateData }: Props) {
                 </div>
                 <div className="text-xs text-gray-500 space-x-3">
                   <span>Seeded: {entry.seedingDate}</span>
-                  {entry.seedingDirection && <span>Direction: {entry.seedingDirection}</span>}
                   {entry.seedingRate > 0 && <span>Rate: {entry.seedingRate.toLocaleString()} seeds/ac</span>}
                   {entry.rowSpacing && <span>Row: {entry.rowSpacing}"</span>}
                 </div>
-                {(entry.chemicalMix || entry.fieldTrials) && (
+                {entry.fieldTrials && (
                   <div className="text-xs text-gray-600 mt-1 space-x-3">
-                    {entry.chemicalMix && <span>Chemical Mix: {entry.chemicalMix}</span>}
                     {entry.fieldTrials && <span>Field Trials: {entry.fieldTrials}</span>}
+                  </div>
+                )}
+                {entry.cropType === 'Potatoes' && (
+                  <div className="text-xs text-gray-600 mt-1 space-x-3">
+                    {entry.tuberSize && <span>Tuber Size: {entry.tuberSize} oz</span>}
+                    {entry.tuberTemp !== undefined && <span>Tuber Temp: {entry.tuberTemp} C</span>}
+                    {entry.groundTemperature !== undefined && <span>Ground Temp: {entry.groundTemperature} C</span>}
+                    {entry.seedCutDate && <span>Seed Cut Date: {entry.seedCutDate}</span>}
                   </div>
                 )}
                 {entry.weather && (
@@ -260,7 +354,7 @@ export default function Seeding({ data, updateData }: Props) {
                   <label className="form-label">Field</label>
                   <select className="form-input" value={form.fieldId} onChange={e => handleFieldSelect(e.target.value)}>
                     <option value="">Select field...</option>
-                    {data.fields.map(f => (
+                    {orderedFields.map(f => (
                       <option key={f.id} value={f.id}>
                         {f.fieldNumber} — {f.cropType}
                       </option>
@@ -269,7 +363,21 @@ export default function Seeding({ data, updateData }: Props) {
                 </div>
                 <div>
                   <label className="form-label">Crop Type</label>
-                  <select className="form-input" value={form.cropType} onChange={e => setForm(f => ({ ...f, cropType: e.target.value as CropType }))}>
+                  <select
+                    className="form-input"
+                    value={form.cropType}
+                    onChange={e => {
+                      const nextCrop = e.target.value as CropType;
+                      setForm(f => ({
+                        ...f,
+                        cropType: nextCrop,
+                        tuberSize: nextCrop === 'Potatoes' ? f.tuberSize : '',
+                        tuberTemp: nextCrop === 'Potatoes' ? f.tuberTemp : undefined,
+                        groundTemperature: nextCrop === 'Potatoes' ? f.groundTemperature : undefined,
+                        seedCutDate: nextCrop === 'Potatoes' ? f.seedCutDate : '',
+                      }));
+                    }}
+                  >
                     {CROPS.map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
@@ -290,16 +398,6 @@ export default function Seeding({ data, updateData }: Props) {
                   />
                 </div>
                 <div>
-                  <label className="form-label">Seeding Direction</label>
-                  <select
-                    className="form-input"
-                    value={form.seedingDirection ?? 'North-South'}
-                    onChange={e => setForm(f => ({ ...f, seedingDirection: e.target.value as 'North-South' | 'East-West' }))}
-                  >
-                    {SEEDING_DIRECTIONS.map(direction => <option key={direction}>{direction}</option>)}
-                  </select>
-                </div>
-                <div>
                   <label className="form-label">Seeding Rate (seeds/ac)</label>
                   <input type="number" className="form-input" value={form.seedingRate || ''} onChange={e => setForm(f => ({ ...f, seedingRate: parseInt(e.target.value) || 0 }))} />
                 </div>
@@ -311,28 +409,48 @@ export default function Seeding({ data, updateData }: Props) {
                   <label className="form-label">Seed Depth (inches)</label>
                   <input type="number" step="0.25" className="form-input" value={form.seedDepth ?? ''} onChange={e => setForm(f => ({ ...f, seedDepth: parseFloat(e.target.value) || undefined }))} />
                 </div>
-                <div>
-                  <label className="form-label">Population (seeds/ac)</label>
-                  <input type="number" className="form-input" value={form.population ?? ''} onChange={e => setForm(f => ({ ...f, population: parseInt(e.target.value) || undefined }))} />
-                </div>
-                <div>
-                  <label className="form-label">Chemical Mix</label>
-                  <input
-                    className="form-input"
-                    value={form.chemicalMix ?? ''}
-                    onChange={e => setForm(f => ({ ...f, chemicalMix: e.target.value }))}
-                    placeholder="Starter, treatment, inoculant..."
-                  />
-                </div>
-                <div>
-                  <label className="form-label">Field Trials</label>
-                  <input
-                    className="form-input"
-                    value={form.fieldTrials ?? ''}
-                    onChange={e => setForm(f => ({ ...f, fieldTrials: e.target.value }))}
-                    placeholder="Trial name or treatment strip"
-                  />
-                </div>
+                {form.cropType === 'Potatoes' && (
+                  <>
+                    <div>
+                      <label className="form-label">Tuber Size (oz)</label>
+                      <input
+                        className="form-input"
+                        value={form.tuberSize ?? ''}
+                        onChange={e => setForm(f => ({ ...f, tuberSize: e.target.value }))}
+                        placeholder="e.g. 2.5"
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">Tuber Temp (C)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        className="form-input"
+                        value={form.tuberTemp ?? ''}
+                        onChange={e => setForm(f => ({ ...f, tuberTemp: parseFloat(e.target.value) || undefined }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">Ground Temperature (C)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        className="form-input"
+                        value={form.groundTemperature ?? ''}
+                        onChange={e => setForm(f => ({ ...f, groundTemperature: parseFloat(e.target.value) || undefined }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">Seed Cut Date</label>
+                      <input
+                        type="date"
+                        className="form-input"
+                        value={form.seedCutDate ?? ''}
+                        onChange={e => setForm(f => ({ ...f, seedCutDate: e.target.value }))}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* GPS Location */}
@@ -378,6 +496,69 @@ export default function Seeding({ data, updateData }: Props) {
                 )}
               </div>
 
+              {/* Trail Tracking */}
+              <div>
+                <div className="flex items-center gap-3 mb-3">
+                  <Zap className="h-5 w-5 text-green-600" />
+                  <span className="form-label mb-0">Seeding Trial Recording</span>
+                  {isTrackingTrial && <CheckCircle2 className="h-4 w-4 text-green-500 animate-pulse" />}
+                </div>
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    {!isTrackingTrial ? (
+                      <button
+                        type="button"
+                        onClick={startTrialTracking}
+                        className="btn-primary text-xs py-1.5 flex-1"
+                      >
+                        <MapPin className="h-3.5 w-3.5" /> Start Recording
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={stopTrialTracking}
+                        className="bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 rounded-md text-xs font-medium flex-1 flex items-center justify-center gap-2"
+                      >
+                        Stop Recording
+                      </button>
+                    )}
+                    {trialPoints.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTrialPoints([]);
+                          setTrackName('Seeding Trial');
+                          stopTrialTracking();
+                        }}
+                        className="btn-secondary text-xs py-1.5"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      className="form-input flex-1"
+                      value={trackName}
+                      onChange={e => setTrackName(e.target.value)}
+                      placeholder="Trial name"
+                    />
+                    {trialPoints.length > 0 && (
+                      <div className="flex items-center gap-1 bg-green-50 border border-green-200 rounded-md px-3 py-1.5 text-xs font-medium text-green-700 whitespace-nowrap">
+                        <MapPin className="h-3.5 w-3.5" />
+                        {trialPoints.length} points
+                      </div>
+                    )}
+                  </div>
+                  {trackingError && (
+                    <div className="flex items-center gap-2 text-red-600 text-xs">
+                      <AlertCircle className="h-3.5 w-3.5" /> {trackingError}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <label className="form-label">Notes</label>
                 <textarea
@@ -416,13 +597,18 @@ export default function Seeding({ data, updateData }: Props) {
                   ['Crop', viewEntry.cropType],
                   ['Variety', viewEntry.variety || '—'],
                   ['Seeding Date', viewEntry.seedingDate],
-                  ['Seeding Direction', viewEntry.seedingDirection || '—'],
                   ['Seeding Rate', viewEntry.seedingRate > 0 ? `${viewEntry.seedingRate.toLocaleString()} seeds/ac` : '—'],
                   ['Row Spacing', viewEntry.rowSpacing ? `${viewEntry.rowSpacing}"` : '—'],
                   ['Seed Depth', viewEntry.seedDepth ? `${viewEntry.seedDepth}"` : '—'],
-                  ['Population', viewEntry.population ? `${viewEntry.population.toLocaleString()} seeds/ac` : '—'],
-                  ['Chemical Mix', viewEntry.chemicalMix || '—'],
                   ['Field Trials', viewEntry.fieldTrials || '—'],
+                  ...(viewEntry.cropType === 'Potatoes'
+                    ? [
+                        ['Tuber Size', viewEntry.tuberSize ? `${viewEntry.tuberSize} oz` : '—'],
+                        ['Tuber Temp', viewEntry.tuberTemp !== undefined ? `${viewEntry.tuberTemp} C` : '—'],
+                        ['Ground Temperature', viewEntry.groundTemperature !== undefined ? `${viewEntry.groundTemperature} C` : '—'],
+                        ['Seed Cut Date', viewEntry.seedCutDate || '—'],
+                      ]
+                    : []),
                 ].map(([k, v]) => (
                   <div key={k as string}>
                     <span className="text-gray-500">{k}:</span>
@@ -441,6 +627,34 @@ export default function Seeding({ data, updateData }: Props) {
               ) : null}
 
               {viewEntry.weather && <WeatherCard weather={viewEntry.weather} />}
+
+              {viewEntry.trialTrack && (
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Seeding Trial</h3>
+                  <div className="bg-green-50 rounded-lg p-3 border border-green-200 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-green-600" />
+                      <span className="font-medium text-green-900">{viewEntry.trialTrack.name}</span>
+                      <span className="text-xs text-green-700 bg-green-100 px-2 py-0.5 rounded">
+                        {viewEntry.trialTrack.points.length} points
+                      </span>
+                    </div>
+                    <Suspense fallback={<div className="h-40 bg-white rounded flex items-center justify-center text-gray-400 text-xs">Loading map...</div>}>
+                      <GeoMap
+                        currentLocation={viewEntry.trialTrack.points[viewEntry.trialTrack.points.length - 1]}
+                        markers={viewEntry.trialTrack.points.map((p, idx) => ({
+                          location: p,
+                          label: `${viewEntry.trialTrack?.name} #${idx + 1}`,
+                          date: viewEntry.seedingDate,
+                          color: '#16a34a',
+                        }))}
+                        height="180px"
+                        readonly
+                      />
+                    </Suspense>
+                  </div>
+                </div>
+              )}
 
               {viewEntry.notes && (
                 <div>
