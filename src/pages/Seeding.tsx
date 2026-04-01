@@ -132,7 +132,7 @@ export default function Seeding({ data, updateData }: Props) {
         if (err.code === 1) {
           setTrackingError('Location permission denied.');
         } else {
-          setTrackingError('Unable to access GPS location.');
+          setTrackingError('Unable to record GPS location.');
         }
       },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
