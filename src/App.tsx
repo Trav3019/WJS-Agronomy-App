@@ -19,7 +19,7 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Layout />}>
+        <Route path="/" element={<Layout data={data} />}>
           <Route index element={<Dashboard data={data} />} />
           <Route path="fields" element={<Fields data={data} updateData={updateData} />} />
           <Route path="scouting" element={<Scouting data={data} updateData={updateData} />} />
