@@ -195,7 +195,7 @@ export default function SeedingPlan({ data, updateData }: Props) {
                   <span>Seeded: {entry.seedingDate}</span>
                   {entry.seedingDirection && <span>Direction: {entry.seedingDirection}</span>}
                   {entry.seedingRate > 0 && <span>Rate: {entry.seedingRate.toLocaleString()} seeds/ac</span>}
-                  {entry.rowSpacing && <span>Row: {entry.rowSpacing}"</span>}
+                  {entry.rowSpacing && <span>{entry.cropType === 'Potatoes' ? 'Seed Spacing' : 'Row'}: {entry.rowSpacing}"</span>}
                 </div>
                 {(entry.chemicalMix || entry.fieldTrials) && (
                   <div className="text-xs text-gray-600 mt-1 space-x-3">
@@ -282,7 +282,7 @@ export default function SeedingPlan({ data, updateData }: Props) {
                   <input type="number" className="form-input" value={form.seedingRate || ''} onChange={e => setForm(f => ({ ...f, seedingRate: parseInt(e.target.value) || 0 }))} />
                 </div>
                 <div>
-                  <label className="form-label">Row Spacing (inches)</label>
+                  <label className="form-label">{form.cropType === 'Potatoes' ? 'Seed Spacing (inches)' : 'Row Spacing (inches)'}</label>
                   <input type="number" className="form-input" value={form.rowSpacing ?? ''} onChange={e => setForm(f => ({ ...f, rowSpacing: parseFloat(e.target.value) || undefined }))} />
                 </div>
                 <div>
@@ -430,7 +430,7 @@ export default function SeedingPlan({ data, updateData }: Props) {
                   ['Seeding Date', viewEntry.seedingDate],
                   ['Seeding Direction', viewEntry.seedingDirection || '—'],
                   ['Seeding Rate', viewEntry.seedingRate > 0 ? `${viewEntry.seedingRate.toLocaleString()} seeds/ac` : '—'],
-                  ['Row Spacing', viewEntry.rowSpacing ? `${viewEntry.rowSpacing}"` : '—'],
+                  [viewEntry.cropType === 'Potatoes' ? 'Seed Spacing' : 'Row Spacing', viewEntry.rowSpacing ? `${viewEntry.rowSpacing}"` : '—'],
                   ['Seed Depth', viewEntry.seedDepth ? `${viewEntry.seedDepth}"` : '—'],
                   ['Chemical Mix', viewEntry.chemicalMix || '—'],
                   ['Field Trials', viewEntry.fieldTrials || '—'],
