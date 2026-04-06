@@ -31,6 +31,7 @@ function getWeatherEmoji(code: number): string {
 export default function WeatherWidget() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [forecast, setForecast] = useState<ForecastDay[]>([]);
+  const [selectedForecastIndex, setSelectedForecastIndex] = useState(0);
   const [weekRain, setWeekRain] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +61,12 @@ export default function WeatherWidget() {
     );
   }, []);
 
+  useEffect(() => {
+    if (selectedForecastIndex >= forecast.length) {
+      setSelectedForecastIndex(0);
+    }
+  }, [forecast, selectedForecastIndex]);
+
   if (loading) {
     return (
       <div className="card flex items-center justify-center h-32">
@@ -79,6 +86,8 @@ export default function WeatherWidget() {
   }
 
   if (!weather) return null;
+
+  const selectedForecast = forecast[selectedForecastIndex] ?? null;
 
   return (
     <div className="card space-y-4">
@@ -133,7 +142,12 @@ export default function WeatherWidget() {
           <h3 className="text-sm font-semibold text-gray-600 mb-2">7-Day Forecast</h3>
           <div className="grid grid-cols-7 gap-1">
             {forecast.map((day, i) => (
-              <div key={day.date} className="text-center bg-gray-50 rounded-lg p-1">
+              <button
+                key={day.date}
+                type="button"
+                onClick={() => setSelectedForecastIndex(i)}
+                className={`text-center rounded-lg p-1 transition-colors ${selectedForecastIndex === i ? 'bg-green-100 ring-1 ring-green-300' : 'bg-gray-50 hover:bg-green-50'}`}
+              >
                 <div className="text-xs text-gray-500">
                   {i === 0 ? 'Today' : new Date(day.date + 'T12:00:00').toLocaleDateString('en-CA', { weekday: 'short' })}
                 </div>
@@ -143,9 +157,42 @@ export default function WeatherWidget() {
                 {day.precipitation > 0 && (
                   <div className="text-xs text-blue-500">{day.precipitation.toFixed(1)}</div>
                 )}
-              </div>
+              </button>
             ))}
           </div>
+
+          {selectedForecast && (
+            <div className="mt-3 rounded-lg bg-gray-50 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-green-800">
+                    {new Date(selectedForecast.date + 'T12:00:00').toLocaleDateString('en-CA', {
+                      weekday: 'long',
+                      month: 'short',
+                      day: 'numeric',
+                    })}
+                  </div>
+                  <div className="text-sm text-gray-500 mt-0.5">{selectedForecast.weatherDescription}</div>
+                </div>
+                <div className="text-3xl">{getWeatherEmoji(selectedForecast.weatherCode)}</div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                <div className="rounded-lg bg-white p-2">
+                  <div className="text-gray-500">High / Low</div>
+                  <div className="font-medium text-gray-800">{Math.round(selectedForecast.temperatureMax)}°C / {Math.round(selectedForecast.temperatureMin)}°C</div>
+                </div>
+                <div className="rounded-lg bg-white p-2">
+                  <div className="text-gray-500">Rain</div>
+                  <div className="font-medium text-gray-800">{selectedForecast.precipitation.toFixed(1)} mm</div>
+                </div>
+                <div className="rounded-lg bg-white p-2 col-span-2">
+                  <div className="text-gray-500">Wind</div>
+                  <div className="font-medium text-gray-800">{Math.round(selectedForecast.windSpeed)} km/h</div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
