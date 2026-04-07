@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { AppData, PotatoYieldReport, PotatoType } from '../types';
 import { generateId, savePotatoYield, deletePotatoYield } from '../utils/storage';
-import { Sprout, Plus, X, Trash2, Eye, Calculator } from 'lucide-react';
+import { Sprout, Plus, X, Trash2, Eye, Calculator, Image as ImageIcon } from 'lucide-react';
 import PhotoCapture from '../components/PhotoCapture';
 import { VARIETIES_BY_CROP } from '../utils/varieties';
 
@@ -40,12 +40,29 @@ export default function PotatoYield({ data, updateData }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyReport());
   const [filterField, setFilterField] = useState('');
+  const [filterVariety, setFilterVariety] = useState('');
 
   const potatoFields = data.fields
     .filter(f => f.cropType === 'Potatoes')
     .sort((a, b) => a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' }));
   const potatoVarieties = VARIETIES_BY_CROP.Potatoes;
+  const filterFieldOptions = Array.from(
+    new Set(
+      data.potatoYieldReports
+        .filter(r => !filterVariety || r.variety === filterVariety)
+        .map(r => r.fieldNumber)
+    )
+  ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+  const filterVarietyOptions = Array.from(
+    new Set(data.potatoYieldReports.map(r => r.variety).filter((v): v is string => Boolean(v && v.trim())))
+  ).sort((a, b) => a.localeCompare(b));
   const grades = form.potatoType === 'table' ? TABLE_GRADES : PROC_GRADES;
+
+  useEffect(() => {
+    if (filterField && !filterFieldOptions.includes(filterField)) {
+      setFilterField('');
+    }
+  }, [filterVariety, filterField, filterFieldOptions]);
 
   function openNew() {
     setEditingId(null);
@@ -118,7 +135,8 @@ export default function PotatoYield({ data, updateData }: Props) {
   }
 
   const filtered = data.potatoYieldReports
-    .filter(r => !filterField || r.fieldNumber.toLowerCase().includes(filterField.toLowerCase()))
+    .filter(r => !filterField || r.fieldNumber === filterField)
+    .filter(r => !filterVariety || r.variety === filterVariety)
     .sort((a, b) => b.date.localeCompare(a.date));
 
   const estimatedYield = calcEstimatedYield(form.totalTuberWeight);
@@ -136,13 +154,21 @@ export default function PotatoYield({ data, updateData }: Props) {
       </div>
 
       {/* Filter */}
-      <div className="flex gap-3">
-        <input
-          className="form-input flex-1 max-w-xs"
-          placeholder="Filter by field #..."
-          value={filterField}
-          onChange={e => setFilterField(e.target.value)}
-        />
+      <div className="flex items-end gap-2 flex-wrap sm:flex-nowrap">
+        <div className="grid grid-cols-2 gap-2 w-full sm:w-auto flex-1 sm:flex-none">
+          <select className="form-input w-full sm:w-40" value={filterField} onChange={e => setFilterField(e.target.value)}>
+            <option value="">All Fields</option>
+            {filterFieldOptions.map(fieldNumber => (
+              <option key={fieldNumber} value={fieldNumber}>Field {fieldNumber}</option>
+            ))}
+          </select>
+          <select className="form-input w-full sm:w-48" value={filterVariety} onChange={e => setFilterVariety(e.target.value)}>
+            <option value="">All Varieties</option>
+            {filterVarietyOptions.map(variety => (
+              <option key={variety} value={variety}>{variety}</option>
+            ))}
+          </select>
+        </div>
         <div className="text-sm text-gray-500 self-center">{filtered.length} report{filtered.length !== 1 ? 's' : ''}</div>
       </div>
 
@@ -180,6 +206,15 @@ export default function PotatoYield({ data, updateData }: Props) {
                 </div>
               </div>
               <div className="flex gap-2 shrink-0">
+                {(report.photos?.length ?? 0) > 0 && (
+                  <button
+                    onClick={() => setPreviewPhoto(report.photos?.[0] ?? null)}
+                    className="btn-secondary text-[11px] py-1 px-2"
+                    title="Open attached photos"
+                  >
+                    <ImageIcon className="h-3 w-3" /> {report.photos?.length}
+                  </button>
+                )}
                 <button onClick={() => setViewReport(report)} className="btn-secondary text-xs py-1.5 px-2.5">
                   <Eye className="h-3.5 w-3.5" /> View
                 </button>
