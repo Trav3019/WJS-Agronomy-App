@@ -220,7 +220,8 @@ export interface PotatoYieldReport {
 
 export interface SprayChemical {
   name: string;
-  rate: string; // in litres
+  rate: string;
+  rateUnit?: string;
 }
 
 export interface SprayApplication {
