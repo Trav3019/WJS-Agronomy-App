@@ -158,7 +158,7 @@ export default function Dashboard({ data }: Props) {
         {/* Right: Alerts + Activity */}
         <div className="lg:col-span-2 space-y-4">
           {/* Today's activity */}
-          <div className="card lg:h-[33.5rem] lg:flex lg:flex-col">
+          <div className="card lg:h-[25rem] lg:flex lg:flex-col">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <h2 className="text-base font-semibold text-green-800">Today's Activity</h2>
               <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1">
