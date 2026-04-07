@@ -93,6 +93,7 @@ export default function Seeding({ data, updateData }: Props) {
   const [loadingWeather, setLoadingWeather] = useState(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
   const [filterCrop, setFilterCrop] = useState<CropType | ''>('');
+  const [filterFieldNumber, setFilterFieldNumber] = useState('');
   const [trackName, setTrackName] = useState('Seeding Trial');
   const [trialPoints, setTrialPoints] = useState<GeoLocation[]>([]);
   const [isTrackingTrial, setIsTrackingTrial] = useState(false);
@@ -100,6 +101,13 @@ export default function Seeding({ data, updateData }: Props) {
   const watchIdRef = useRef<number | null>(null);
   const orderedFields = [...data.fields].sort((a, b) =>
     a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' })
+  );
+  const filterFieldOptions = Array.from(
+    new Set(
+      orderedFields
+        .filter(f => !filterCrop || f.cropType === filterCrop)
+        .map(f => f.fieldNumber)
+    )
   );
   const varietyOptions = VARIETIES_BY_CROP[form.cropType] ?? [];
 
@@ -111,6 +119,12 @@ export default function Seeding({ data, updateData }: Props) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (filterFieldNumber && !filterFieldOptions.includes(filterFieldNumber)) {
+      setFilterFieldNumber('');
+    }
+  }, [filterCrop, filterFieldNumber, filterFieldOptions]);
 
   function startTrialTracking() {
     setIsTrackingTrial(true);
@@ -259,26 +273,33 @@ export default function Seeding({ data, updateData }: Props) {
 
   const filtered = data.seedingEntries
     .filter(e => !filterCrop || e.cropType === filterCrop)
+    .filter(e => !filterFieldNumber || e.fieldNumber === filterFieldNumber)
     .sort((a, b) => b.seedingDate.localeCompare(a.seedingDate));
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-green-900">Seeding Records</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Track seeding dates with historical weather data</p>
-        </div>
-        <button onClick={openNew} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Entry
-        </button>
+      <div>
+        <h1 className="text-2xl font-bold text-green-900">Seeding Records</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Track seeding dates with historical weather data</p>
       </div>
 
       {/* Filter */}
-      <div className="flex gap-3">
-        <select className="form-input w-40" value={filterCrop} onChange={e => setFilterCrop(e.target.value as CropType | '')}>
-          <option value="">All Crops</option>
-          {CROPS.map(c => <option key={c}>{c}</option>)}
-        </select>
+      <div className="flex items-end gap-2 flex-wrap sm:flex-nowrap">
+        <div className="grid grid-cols-2 gap-2 w-full sm:w-auto flex-1 sm:flex-none">
+          <select className="form-input w-full sm:w-40" value={filterCrop} onChange={e => setFilterCrop(e.target.value as CropType | '')}>
+            <option value="">All Crops</option>
+            {CROPS.map(c => <option key={c}>{c}</option>)}
+          </select>
+          <select className="form-input w-full sm:w-40" value={filterFieldNumber} onChange={e => setFilterFieldNumber(e.target.value)}>
+            <option value="">All Fields</option>
+            {filterFieldOptions.map(fieldNumber => (
+              <option key={fieldNumber} value={fieldNumber}>Field {fieldNumber}</option>
+            ))}
+          </select>
+        </div>
+        <button onClick={openNew} className="btn-primary whitespace-nowrap">
+          <Plus className="h-4 w-4" /> New Entry
+        </button>
         <div className="text-sm text-gray-500 self-center">{filtered.length} entr{filtered.length !== 1 ? 'ies' : 'y'}</div>
       </div>
 
