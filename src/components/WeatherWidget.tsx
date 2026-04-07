@@ -13,6 +13,9 @@ interface ForecastDay {
   windSpeed: number;
 }
 
+const DEFAULT_LAT = 49.1215;
+const DEFAULT_LNG = -97.9316;
+
 const WMO_ICON: Record<number, string> = {
   0: '☀️', 1: '🌤', 2: '⛅', 3: '☁️',
   45: '🌫', 48: '🌫',
@@ -37,27 +40,53 @@ export default function WeatherWidget() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    navigator.geolocation.getCurrentPosition(
-      async pos => {
-        try {
-          const [w, rain, fc] = await Promise.all([
-            getCurrentWeather(pos.coords.latitude, pos.coords.longitude),
-            getWeeklyRainfall(pos.coords.latitude, pos.coords.longitude),
-            getWeeklyForecast(pos.coords.latitude, pos.coords.longitude),
-          ]);
-          setWeather(w);
-          setWeekRain(rain);
-          setForecast(fc);
-        } catch {
-          setError('Failed to load weather data');
-        } finally {
-          setLoading(false);
+    const loadWeather = async (lat: number, lng: number, usingFallback = false) => {
+      try {
+        const [weatherResult, rainfallResult, forecastResult] = await Promise.allSettled([
+          getCurrentWeather(lat, lng),
+          getWeeklyRainfall(lat, lng),
+          getWeeklyForecast(lat, lng),
+        ]);
+
+        if (weatherResult.status === 'fulfilled') {
+          setWeather(weatherResult.value);
         }
-      },
-      () => {
-        setError('Location permission required for weather');
+
+        if (rainfallResult.status === 'fulfilled') {
+          setWeekRain(rainfallResult.value);
+        }
+
+        if (forecastResult.status === 'fulfilled') {
+          setForecast(forecastResult.value);
+        }
+
+        if (weatherResult.status !== 'fulfilled') {
+          setError(usingFallback ? 'Failed to load weather data.' : 'Using Winkler weather fallback.');
+        } else if (usingFallback) {
+          setError('Using Winkler weather fallback.');
+        } else {
+          setError(null);
+        }
+      } catch {
+        setError('Failed to load weather data.');
+      } finally {
         setLoading(false);
       }
+    };
+
+    if (!navigator.geolocation) {
+      void loadWeather(DEFAULT_LAT, DEFAULT_LNG, true);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        void loadWeather(pos.coords.latitude, pos.coords.longitude, false);
+      },
+      () => {
+        void loadWeather(DEFAULT_LAT, DEFAULT_LNG, true);
+      },
+      { timeout: 10000, maximumAge: 300000 }
     );
   }, []);
 
@@ -76,7 +105,7 @@ export default function WeatherWidget() {
     );
   }
 
-  if (error) {
+  if (error && !weather) {
     return (
       <div className="card flex items-center gap-2 text-amber-600">
         <AlertTriangle className="h-5 w-5" />
@@ -94,6 +123,13 @@ export default function WeatherWidget() {
       <h2 className="text-base font-semibold text-green-800 flex items-center gap-2">
         <Cloud className="h-5 w-5" /> Current Weather
       </h2>
+
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-amber-700">
+          <AlertTriangle className="h-4 w-4" />
+          <span className="text-xs sm:text-sm">{error}</span>
+        </div>
+      )}
 
       {/* Current conditions */}
       <div className="flex items-center justify-between">
