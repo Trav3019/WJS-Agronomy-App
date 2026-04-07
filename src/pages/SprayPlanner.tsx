@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AppData, SprayApplication, Priority, CropType } from '../types';
 import { generateId, saveSprayApplication, deleteSprayApplication } from '../utils/storage';
+import { SPRAY_PRODUCT_OPTIONS } from '../utils/sprayCatalog';
 import { Plus, X, Trash2, Eye, CheckCircle, Clock, XCircle, Syringe, AlertTriangle, ChevronDown } from 'lucide-react';
 
 interface Props {
@@ -11,57 +12,7 @@ interface Props {
 const METHODS = ['Ground Sprayer', 'Air (Aircraft)', 'High-Clearance Sprayer', 'Backpack Sprayer', 'Drone'];
 const RATE_UNITS = ['L', 'mL', 'kg', 'g', 'lb', 'oz', 'gal', 'pt', 'qt'];
 const CROPS: CropType[] = ['Corn', 'Canola', 'Soybeans', 'Wheat', 'Edible Beans', 'Oats', 'Potatoes'];
-const PRODUCT_OPTIONS = [
-  'LI 700',
-  'GLYPHOSATE',
-  'DESICA',
-  'INTERLOCK',
-  'MANIPULATOR',
-  'RAXIL',
-  '2-4,D',
-  'AATREX',
-  'ALLEGRO',
-  'AXIAL EXTREME',
-  'BASAGRAN FORTE',
-  'BRAVO',
-  'EDGE',
-  'EPTAM',
-  'GLUFOSINATE',
-  'GROUP 1',
-  'HEAT/GENERIC',
-  'HI ACTIVATE',
-  'HINGE',
-  'IMPACT',
-  'KOMODO',
-  'MANZATE MAX',
-  'MIAVIS DUO',
-  'MINECTO',
-  'MOVENTO',
-  'MSO',
-  'ON-DECK',
-  'ORANDIS',
-  'OUTSHINE/FORCE FIGHTER',
-  'PROLINE GOLD',
-  'PROLINE/GOLD',
-  'PROSARO/PRO',
-  'PYTHON/VIPER',
-  'QUAD TOP',
-  'REFLEX',
-  'Roundup WeatherMax',
-  'Round up Extend',
-  'Liberty 280',
-  'Glyphosate 4L',
-  '2,4-D Amine',
-  'Atrazine 500',
-  'Dicamba 2,4-D',
-  'Metribuzin 75DF',
-  'Sharpen 2.7',
-  'Assure II',
-  'Select Max',
-  'Tebuconazole',
-  'TRICOR',
-  'UPTAKE',
-];
+const PRODUCT_OPTIONS = SPRAY_PRODUCT_OPTIONS;
 
 const emptyApp = (): Omit<SprayApplication, 'id' | 'createdAt' | 'updatedAt'> => ({
   fieldIds: [],
@@ -109,8 +60,12 @@ export default function SprayPlanner({ data, updateData }: Props) {
   const [form, setForm] = useState(emptyApp());
   const [filterStatus, setFilterStatus] = useState<SprayApplication['status'] | ''>('');
   const [filterPriority, setFilterPriority] = useState<Priority | ''>('');
+  const [listCropFilter, setListCropFilter] = useState<CropType | ''>('');
+  const [listFieldFilter, setListFieldFilter] = useState('');
   const [cropFilter, setCropFilter] = useState<CropType | ''>('');
   const [fieldsDropdownOpen, setFieldsDropdownOpen] = useState(false);
+  const [catalogInput, setCatalogInput] = useState('');
+  const [catalogDropdownOpen, setCatalogDropdownOpen] = useState(false);
   const fieldsDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -129,6 +84,7 @@ export default function SprayPlanner({ data, updateData }: Props) {
     setForm(emptyApp());
     setCropFilter('');
     setFieldsDropdownOpen(false);
+    setCatalogDropdownOpen(false);
     setShowForm(true);
   }
 
@@ -164,6 +120,7 @@ export default function SprayPlanner({ data, updateData }: Props) {
     ));
     setCropFilter(selectedCrops.length === 1 ? selectedCrops[0] : '');
     setFieldsDropdownOpen(false);
+    setCatalogDropdownOpen(false);
     setShowForm(true);
   }
 
@@ -225,6 +182,8 @@ export default function SprayPlanner({ data, updateData }: Props) {
   const filtered = data.sprayApplications
     .filter(a => !filterStatus || a.status === filterStatus)
     .filter(a => !filterPriority || a.priority === filterPriority)
+    .filter(a => !listCropFilter || a.fieldIds.some(fieldId => data.fields.find(f => f.id === fieldId)?.cropType === listCropFilter))
+    .filter(a => !listFieldFilter || a.fieldNumbers.includes(listFieldFilter))
     .sort((a, b) => a.plannedDate.localeCompare(b.plannedDate));
 
   const planned = data.sprayApplications.filter(a => a.status === 'planned');
@@ -232,9 +191,51 @@ export default function SprayPlanner({ data, updateData }: Props) {
   const availableFields = data.fields
     .filter(field => !cropFilter || field.cropType === cropFilter)
     .sort((a, b) => a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' }));
+  const listFieldOptions = Array.from(
+    new Set(
+      data.fields
+        .filter(field => !listCropFilter || field.cropType === listCropFilter)
+        .map(field => field.fieldNumber)
+    )
+  ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
 
-  const formatChemicalRate = (chem: { rate?: string; rateUnit?: string }) =>
-    chem.rate ? `${chem.rate} ${chem.rateUnit || 'L'}` : '';
+  const formatChemicalRate = (chem: { rate?: string; rateUnit?: string }) => {
+    if (!chem.rate) return '';
+    if (chem.rateUnit) return `${chem.rate} ${chem.rateUnit}`;
+
+    // Legacy values may already include units (e.g., "1.5 L").
+    return /[a-zA-Z]/.test(chem.rate) ? chem.rate : `${chem.rate} L`;
+  };
+  const getDisplayChemicals = (app: SprayApplication) => {
+    if ((app.chemicals?.length ?? 0) > 0) return app.chemicals ?? [];
+
+    const legacyProducts = (app.products?.length ?? 0) > 0
+      ? app.products!
+      : (app.product || '').split(',').map(p => p.trim()).filter(Boolean);
+
+    return legacyProducts.map(name => ({
+      name,
+      rate: app.rate || '',
+      rateUnit: undefined,
+    }));
+  };
+  const filteredCatalogOptions = PRODUCT_OPTIONS
+    .filter(option => option.toLowerCase().includes(catalogInput.toLowerCase()))
+    .slice(0, 8);
+
+  function addChemicalFromCatalog(name: string) {
+    const chemicalName = name.trim();
+    if (!chemicalName) return;
+    setForm(f => ({ ...f, chemicals: [...(f.chemicals ?? []), { name: chemicalName, rate: '', rateUnit: 'L' }] }));
+    setCatalogInput('');
+    setCatalogDropdownOpen(false);
+  }
+
+  useEffect(() => {
+    if (listFieldFilter && !listFieldOptions.includes(listFieldFilter)) {
+      setListFieldFilter('');
+    }
+  }, [listCropFilter, listFieldFilter, listFieldOptions]);
 
   return (
     <div className="space-y-5">
@@ -300,17 +301,15 @@ export default function SprayPlanner({ data, updateData }: Props) {
 
       {/* Filter */}
       <div className="flex gap-3">
-        <select className="form-input w-40" value={filterStatus} onChange={e => setFilterStatus(e.target.value as any)}>
-          <option value="">All Status</option>
-          <option value="planned">Planned</option>
-          <option value="applied">Applied</option>
-          <option value="cancelled">Cancelled</option>
+        <select className="form-input w-40" value={listCropFilter} onChange={e => setListCropFilter(e.target.value as CropType | '')}>
+          <option value="">All Crops</option>
+          {CROPS.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        <select className="form-input w-40" value={filterPriority} onChange={e => setFilterPriority(e.target.value as Priority | '')}>
-          <option value="">All Priorities</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
+        <select className="form-input w-40" value={listFieldFilter} onChange={e => setListFieldFilter(e.target.value)}>
+          <option value="">All Fields</option>
+          {listFieldOptions.map(fieldNumber => (
+            <option key={fieldNumber} value={fieldNumber}>Field {fieldNumber}</option>
+          ))}
         </select>
       </div>
 
@@ -320,13 +319,15 @@ export default function SprayPlanner({ data, updateData }: Props) {
           <div className="card text-center py-12 text-gray-400">
             No spray applications yet. Click "New Application" to plan one.
           </div>
-        ) : filtered.map(app => (
+        ) : filtered.map(app => {
+          const displayChemicals = getDisplayChemicals(app);
+          return (
           <div key={app.id} className={`card hover:shadow-md transition-shadow ${app.priority === 'high' && app.status === 'planned' ? 'border-red-200 bg-red-50' : ''}`}>
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 mb-1">
                   <Syringe className="h-4 w-4 text-green-600" />
-                  <span className="font-semibold text-green-900">{(app.chemicals?.length ?? 0) > 0 ? app.chemicals!.map(c => c.name).join(', ') : (app.products?.length ?? 0) > 0 ? app.products?.join(', ') : app.product}</span>
+                  <span className="font-semibold text-green-900">{displayChemicals.map(c => c.name).join(', ') || app.product}</span>
                   <StatusBadge status={app.status} />
                   {app.priority === 'high' && <AlertTriangle className="h-4 w-4 text-red-500" />}
                 </div>
@@ -334,16 +335,31 @@ export default function SprayPlanner({ data, updateData }: Props) {
                   <span>Fields: {app.fieldNumbers.length > 0 ? app.fieldNumbers.join(', ') : 'All'}</span>
                   {app.status === 'applied' && app.appliedDate && <span>Applied: {app.appliedDate}</span>}
                 </div>
-                <div className="text-sm text-gray-600 mt-1">
-                  {(app.chemicals?.length ?? 0) > 0
-                    ? app.chemicals!.map(c => c.name + (c.rate ? ` — ${formatChemicalRate(c)}` : '')).join(' | ') + ' | ' + app.applicationMethod
-                    : app.applicationMethod}
-                </div>
+                {displayChemicals.length > 0 ? (
+                  <div className="mt-1 space-y-1">
+                    <ul className="list-disc pl-5 text-sm text-gray-600">
+                      {displayChemicals.map((c, idx) => (
+                        <li key={`${app.id}-${c.name}-${idx}`}>
+                          {c.name}
+                          {c.rate ? ` - ${formatChemicalRate(c)}` : ' - n/a'}
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="text-sm text-gray-600">Method: {app.applicationMethod}</div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-600 mt-1">Method: {app.applicationMethod}</div>
+                )}
               </div>
               <div className="flex gap-2 shrink-0 flex-wrap justify-end">
                 {app.status === 'planned' && (
-                  <button onClick={() => markApplied(app)} className="btn-primary text-xs py-1.5 px-2.5">
-                    <CheckCircle className="h-3.5 w-3.5" /> Mark Applied
+                  <button
+                    onClick={() => markApplied(app)}
+                    className="text-green-600 hover:bg-green-50 p-1.5 rounded-md"
+                    title="Mark applied"
+                    aria-label="Mark applied"
+                  >
+                    <CheckCircle className="h-4 w-4" />
                   </button>
                 )}
                 <button onClick={() => setViewApp(app)} className="btn-secondary text-xs py-1.5 px-2.5">
@@ -356,7 +372,7 @@ export default function SprayPlanner({ data, updateData }: Props) {
               </div>
             </div>
           </div>
-        ))}
+        )})}
       </div>
 
       {/* Form Modal */}
@@ -483,13 +499,52 @@ export default function SprayPlanner({ data, updateData }: Props) {
                     </div>
                   ))}
                   <div className="flex gap-2">
-                    <select className="form-input flex-1" value="" onChange={e => {
-                      if (!e.target.value) return;
-                      setForm(f => ({ ...f, chemicals: [...(f.chemicals ?? []), { name: e.target.value, rate: '', rateUnit: 'L' }] }));
-                    }}>
-                      <option value="">Add from catalog</option>
-                      {PRODUCT_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
-                    </select>
+                    <div className="flex-1 relative">
+                      <div className="flex gap-2">
+                        <input
+                          className="form-input w-full"
+                          value={catalogInput}
+                          onChange={e => setCatalogInput(e.target.value)}
+                          onFocus={() => setCatalogDropdownOpen(true)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              addChemicalFromCatalog(catalogInput);
+                            }
+                          }}
+                          placeholder="Search/add from catalog"
+                        />
+                        <button
+                          type="button"
+                          className="btn-secondary px-2"
+                          onClick={() => setCatalogDropdownOpen(open => !open)}
+                          title="Toggle product dropdown"
+                        >
+                          <ChevronDown className={`h-4 w-4 transition-transform ${catalogDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                      </div>
+                      {(catalogDropdownOpen || catalogInput.trim()) && filteredCatalogOptions.length > 0 && (
+                        <div className="absolute z-20 mt-1 w-full max-h-40 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-sm">
+                          {filteredCatalogOptions.map(option => (
+                            <button
+                              key={option}
+                              type="button"
+                              className="block w-full px-3 py-2 text-left text-sm hover:bg-green-50"
+                              onClick={() => addChemicalFromCatalog(option)}
+                            >
+                              {option}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-secondary text-xs px-3 whitespace-nowrap"
+                      onClick={() => addChemicalFromCatalog(catalogInput)}
+                    >
+                      Add
+                    </button>
                     <button type="button" className="btn-secondary text-xs px-3 whitespace-nowrap" onClick={() => setForm(f => ({ ...f, chemicals: [...(f.chemicals ?? []), { name: '', rate: '', rateUnit: 'L' }] }))}>
                       + Custom
                     </button>
@@ -553,14 +608,14 @@ export default function SprayPlanner({ data, updateData }: Props) {
                 <StatusBadge status={viewApp.status} />
                 {viewApp.priority === 'high' && <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">High Priority</span>}
               </div>
-              {(viewApp.chemicals?.length ?? 0) > 0 && (
+              {getDisplayChemicals(viewApp).length > 0 && (
                 <div>
                   <div className="text-xs text-gray-500 font-medium mb-1 uppercase tracking-wide">Chemicals & Rates</div>
                   <div className="space-y-1">
-                    {viewApp.chemicals!.map((c, i) => (
-                      <div key={i} className="flex justify-between bg-gray-50 rounded px-3 py-1.5">
+                    {getDisplayChemicals(viewApp).map((c, i) => (
+                      <div key={i} className="bg-gray-50 rounded px-3 py-1.5">
                         <span className="font-medium">{c.name}</span>
-                        {c.rate && <span className="text-gray-600">{formatChemicalRate(c)}</span>}
+                        <span className="text-gray-600"> - {c.rate ? formatChemicalRate(c) : 'n/a'}</span>
                       </div>
                     ))}
                   </div>
