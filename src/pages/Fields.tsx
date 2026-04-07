@@ -161,7 +161,7 @@ export default function Fields({ data, updateData }: Props) {
       return sortDir === 'asc' ? cmp : -cmp;
     });
 
-  const totalAcres = filtered.reduce((s, f) => s + f.acres, 0);
+  const totalAcres = data.fields.reduce((s, f) => s + f.acres, 0);
   const cropAcres = CROPS.map(crop => ({
     crop,
     acres: data.fields
@@ -204,7 +204,7 @@ export default function Fields({ data, updateData }: Props) {
           title="Show all crops"
         >
           <div className="text-2xl font-bold text-green-800">{totalAcres.toFixed(1)}</div>
-          <div className="text-xs text-gray-500">Total Filtered Acres</div>
+          <div className="text-xs text-gray-500">Total Acres</div>
         </button>
         {cropAcres.map(({ crop, acres }) => (
           <button
