@@ -14,12 +14,15 @@ import PotatoStorageBins from './pages/PotatoStorageBins';
 import { useAppData } from './hooks/useAppData';
 
 function App() {
-  const { data, updateData } = useAppData();
+  const { data, updateData, activeSeason, changeSeason, seasonOptions } = useAppData();
 
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Layout data={data} />}>
+        <Route
+          path="/"
+          element={<Layout data={data} activeSeason={activeSeason} onSeasonChange={changeSeason} seasonOptions={seasonOptions} />}
+        >
           <Route index element={<Dashboard data={data} />} />
           <Route path="fields" element={<Fields data={data} updateData={updateData} />} />
           <Route path="scouting" element={<Scouting data={data} updateData={updateData} />} />
