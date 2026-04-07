@@ -251,10 +251,7 @@ export default function FieldSummary({ data }: Props) {
   const filteredOperationsByField = operationsByField.filter(({ field, operations, seedingRecords }) => {
     if (fieldFilter && !field.fieldNumber.toLowerCase().includes(fieldFilter.toLowerCase())) return false;
     if (cropFilter && field.cropType !== cropFilter) return false;
-    if (!operationFilter) return true;
-    const hasMatchingOperations = operations.some(op => op.type === operationFilter);
-    const hasMatchingSeedingRecords = operationFilter === 'Seeding Record' && seedingRecords.length > 0;
-    return hasMatchingOperations || hasMatchingSeedingRecords;
+    return true;
   });
 
   return (
