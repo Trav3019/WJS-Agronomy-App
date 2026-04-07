@@ -301,6 +301,7 @@ export interface HarvestReport {
   tuberDefects?: string[];
   tuberTemp?: number;
   weatherData?: string;
+  photos?: string[];
   notes?: string;
   createdAt: string;
 }
