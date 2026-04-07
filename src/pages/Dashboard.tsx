@@ -85,6 +85,13 @@ export default function Dashboard({ data }: Props) {
 
   // Latest potato yield
   const latestYield = data.potatoYieldReports
+    .filter(report => {
+      try {
+        return isWithinInterval(parseISO(report.date), { start: weekAgo, end: today });
+      } catch {
+        return false;
+      }
+    })
     .sort((a, b) => b.date.localeCompare(a.date));
 
   return (
