@@ -2,6 +2,7 @@ import { useState, lazy, Suspense, useEffect, useRef } from 'react';
 import type {
   AppData, ScoutingReport, CropType, Priority, GeoLocation,
   CornScoutData, CanolaScoutData, SoyScoutData, WheatScoutData,
+  SprayChemical,
   EdibleBeanScoutData, OatsScoutData, PotatoScoutData
 } from '../types';
 import { generateId, saveScoutingReport, deleteScoutingReport, saveSprayApplication, deleteSprayApplication } from '../utils/storage';
@@ -24,6 +25,7 @@ const CROP_ORDER: Record<CropType, number> = {
   'Edible Beans': 6,
 };
 const SPRAY_METHODS = ['Ground Sprayer', 'Air (Aircraft)', 'High-Clearance Sprayer', 'Backpack Sprayer', 'Drone'];
+const SPRAY_RATE_UNITS = ['L', 'mL', 'kg', 'g', 'lb', 'oz', 'gal', 'pt', 'qt'];
 const PRODUCT_OPTIONS = [
   'LI 700',
   'GLYPHOSATE',
@@ -592,7 +594,7 @@ export default function Scouting({ data, updateData }: Props) {
   const [weedsPresent, setWeedsPresent] = useState<string[]>([]);
   const [cropData, setCropData] = useState<any>({});
   const [recordSpray, setRecordSpray] = useState(false);
-  const [sprayChemicals, setSprayChemicals] = useState<Array<{ name: string; rate: string }>>([]);
+  const [sprayChemicals, setSprayChemicals] = useState<SprayChemical[]>([]);
   const [sprayMethod, setSprayMethod] = useState(SPRAY_METHODS[0]);
   const [sprayWaterVolume, setSprayWaterVolume] = useState('');
   const [sprayNotes, setSprayNotes] = useState('');
@@ -723,7 +725,7 @@ export default function Scouting({ data, updateData }: Props) {
     const field = selectedField ?? data.fields.find(f => f.fieldNumber === editingReport?.fieldNumber);
     const now = new Date().toISOString();
     const cleanedChemicals = sprayChemicals
-      .map(c => ({ name: c.name.trim(), rate: c.rate.trim() }))
+      .map(c => ({ name: c.name.trim(), rate: c.rate.trim(), rateUnit: c.rateUnit || 'L' }))
       .filter(c => c.name);
     const shouldSaveSpray = recordSpray && cleanedChemicals.length > 0;
     const sprayApplicationId = shouldSaveSpray
@@ -770,7 +772,7 @@ export default function Scouting({ data, updateData }: Props) {
           products: cleanedChemicals.map(c => c.name),
           chemicals: cleanedChemicals,
           activeIngredient: '',
-          rate: cleanedChemicals.map(c => `${c.name}: ${c.rate ? `${c.rate}L` : 'n/a'}`).join(', '),
+          rate: cleanedChemicals.map(c => `${c.name}: ${c.rate ? `${c.rate} ${c.rateUnit || 'L'}` : 'n/a'}`).join(', '),
           waterVolume: sprayWaterVolume || undefined,
           targetPest: '',
           applicationMethod: sprayMethod,
@@ -1039,14 +1041,20 @@ export default function Scouting({ data, updateData }: Props) {
                             onChange={e => setSprayChemicals(prev => prev.map((c, i) => i === idx ? { ...c, name: e.target.value } : c))}
                             placeholder="Chemical name"
                           />
-                          <div className="relative w-36">
+                          <div className="w-44 flex gap-2">
                             <input
-                              className="form-input pr-7"
+                              className="form-input"
                               value={chem.rate}
                               onChange={e => setSprayChemicals(prev => prev.map((c, i) => i === idx ? { ...c, rate: e.target.value } : c))}
                               placeholder="Rate"
                             />
-                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">L</span>
+                            <select
+                              className="form-input w-20"
+                              value={chem.rateUnit ?? 'L'}
+                              onChange={e => setSprayChemicals(prev => prev.map((c, i) => i === idx ? { ...c, rateUnit: e.target.value } : c))}
+                            >
+                              {SPRAY_RATE_UNITS.map(unit => <option key={unit} value={unit}>{unit}</option>)}
+                            </select>
                           </div>
                           <button type="button" onClick={() => setSprayChemicals(prev => prev.filter((_, i) => i !== idx))} className="text-red-500 hover:bg-red-50 p-1.5 rounded">
                             <X className="h-4 w-4" />
@@ -1058,12 +1066,12 @@ export default function Scouting({ data, updateData }: Props) {
                         <select className="form-input flex-1" value="" onChange={e => {
                           const value = e.target.value;
                           if (!value) return;
-                          setSprayChemicals(prev => [...prev, { name: value, rate: '' }]);
+                          setSprayChemicals(prev => [...prev, { name: value, rate: '', rateUnit: 'L' }]);
                         }}>
                           <option value="">Add from catalog</option>
                           {sprayCatalogOptions.map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
-                        <button type="button" className="btn-secondary text-xs px-3 whitespace-nowrap" onClick={() => setSprayChemicals(prev => [...prev, { name: '', rate: '' }])}>
+                        <button type="button" className="btn-secondary text-xs px-3 whitespace-nowrap" onClick={() => setSprayChemicals(prev => [...prev, { name: '', rate: '', rateUnit: 'L' }])}>
                           + Custom
                         </button>
                       </div>
@@ -1230,7 +1238,7 @@ export default function Scouting({ data, updateData }: Props) {
                     {viewReport.sprayRecord.chemicals.map((c, i) => (
                       <div key={`${c.name}-${i}`} className="flex justify-between">
                         <span className="font-medium">{c.name}</span>
-                        {c.rate && <span className="text-gray-600">{c.rate} L</span>}
+                        {c.rate && <span className="text-gray-600">{c.rate} {c.rateUnit || 'L'}</span>}
                       </div>
                     ))}
                     <div><span className="text-gray-500">Method:</span> <span className="font-medium">{viewReport.sprayRecord.applicationMethod}</span></div>
