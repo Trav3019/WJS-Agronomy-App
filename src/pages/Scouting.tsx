@@ -8,6 +8,7 @@ import type {
 import { generateId, saveScoutingReport, deleteScoutingReport, saveSprayApplication, deleteSprayApplication } from '../utils/storage';
 import PhotoCapture from '../components/PhotoCapture';
 import { VARIETIES_BY_CROP } from '../utils/varieties';
+import { SPRAY_PRODUCT_OPTIONS } from '../utils/sprayCatalog';
 import {
   Plus, X, Trash2, ChevronDown, ChevronRight, MapPin, Image, Eye, Filter
 } from 'lucide-react';
@@ -26,57 +27,7 @@ const CROP_ORDER: Record<CropType, number> = {
 };
 const SPRAY_METHODS = ['Ground Sprayer', 'Air (Aircraft)', 'High-Clearance Sprayer', 'Backpack Sprayer', 'Drone'];
 const SPRAY_RATE_UNITS = ['L', 'mL', 'kg', 'g', 'lb', 'oz', 'gal', 'pt', 'qt'];
-const PRODUCT_OPTIONS = [
-  'LI 700',
-  'GLYPHOSATE',
-  'DESICA',
-  'INTERLOCK',
-  'MANIPULATOR',
-  'RAXIL',
-  '2-4,D',
-  'AATREX',
-  'ALLEGRO',
-  'AXIAL EXTREME',
-  'BASAGRAN FORTE',
-  'BRAVO',
-  'EDGE',
-  'EPTAM',
-  'GLUFOSINATE',
-  'GROUP 1',
-  'HEAT/GENERIC',
-  'HI ACTIVATE',
-  'HINGE',
-  'IMPACT',
-  'KOMODO',
-  'MANZATE MAX',
-  'MIAVIS DUO',
-  'MINECTO',
-  'MOVENTO',
-  'MSO',
-  'ON-DECK',
-  'ORANDIS',
-  'OUTSHINE/FORCE FIGHTER',
-  'PROLINE GOLD',
-  'PROLINE/GOLD',
-  'PROSARO/PRO',
-  'PYTHON/VIPER',
-  'QUAD TOP',
-  'REFLEX',
-  'Roundup WeatherMax',
-  'Round up Extend',
-  'Liberty 280',
-  'Glyphosate 4L',
-  '2,4-D Amine',
-  'Atrazine 500',
-  'Dicamba 2,4-D',
-  'Metribuzin 75DF',
-  'Sharpen 2.7',
-  'Assure II',
-  'Select Max',
-  'Tebuconazole',
-  'TRICOR',
-  'UPTAKE',
-];
+const PRODUCT_OPTIONS = SPRAY_PRODUCT_OPTIONS;
 const CROP_PRODUCT_OPTIONS: Record<CropType, string[]> = {
   Corn: [
     'LI 700', 'GLYPHOSATE', 'Roundup WeatherMax', 'Round up Extend', 'Glyphosate 4L',
@@ -534,15 +485,6 @@ function FormNum({ label, value, onChange, step = 1 }: { label: string; value?: 
   );
 }
 
-function FormText({ label, value, onChange, placeholder }: { label: string; value?: string; onChange: (v: string) => void; placeholder?: string }) {
-  return (
-    <div>
-      <label className="form-label">{label}</label>
-      <input className="form-input" value={value ?? ''} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
-    </div>
-  );
-}
-
 function FormSelect({ label, value, onChange, opts }: { label: string; value?: string; onChange: (v: string) => void; opts: string[] }) {
   return (
     <div>
@@ -598,6 +540,8 @@ export default function Scouting({ data, updateData }: Props) {
   const [sprayMethod, setSprayMethod] = useState(SPRAY_METHODS[0]);
   const [sprayWaterVolume, setSprayWaterVolume] = useState('');
   const [sprayNotes, setSprayNotes] = useState('');
+  const [sprayCatalogInput, setSprayCatalogInput] = useState('');
+  const [sprayCatalogDropdownOpen, setSprayCatalogDropdownOpen] = useState(false);
   const [trackName, setTrackName] = useState('');
   const [trailPoints, setTrailPoints] = useState<GeoLocation[]>([]);
   const [isTrackingTrail, setIsTrackingTrail] = useState(false);
@@ -608,13 +552,29 @@ export default function Scouting({ data, updateData }: Props) {
   const cropType = selectedField?.cropType ?? 'Corn';
   const varietyOptions = VARIETIES_BY_CROP[cropType] ?? [];
   const sprayCatalogOptions = selectedField
-    ? (CROP_PRODUCT_OPTIONS[selectedField.cropType] ?? PRODUCT_OPTIONS)
+    ? Array.from(new Set([...(CROP_PRODUCT_OPTIONS[selectedField.cropType] ?? []), ...PRODUCT_OPTIONS]))
     : PRODUCT_OPTIONS;
+  const filteredSprayCatalogOptions = sprayCatalogOptions
+    .filter(option => option.toLowerCase().includes(sprayCatalogInput.toLowerCase()))
+    .slice(0, 8);
   const orderedFields = [...data.fields].sort((a, b) => {
     const cropCmp = CROP_ORDER[a.cropType] - CROP_ORDER[b.cropType];
     if (cropCmp !== 0) return cropCmp;
     return a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' });
   });
+  const filterFieldOptions = Array.from(
+    new Set(
+      orderedFields
+        .filter(f => !filterCrop || f.cropType === filterCrop)
+        .map(f => f.fieldNumber)
+    )
+  );
+
+  useEffect(() => {
+    if (filterField && !filterFieldOptions.includes(filterField)) {
+      setFilterField('');
+    }
+  }, [filterCrop, filterField, filterFieldOptions]);
 
   function distanceMeters(a: GeoLocation, b: GeoLocation) {
     const toRad = (v: number) => v * (Math.PI / 180);
@@ -683,6 +643,8 @@ export default function Scouting({ data, updateData }: Props) {
     setCropData({});
     setRecordSpray(false);
     setSprayChemicals([]);
+    setSprayCatalogInput('');
+    setSprayCatalogDropdownOpen(false);
     setSprayMethod(SPRAY_METHODS[0]);
     setSprayWaterVolume('');
     setSprayNotes('');
@@ -711,6 +673,7 @@ export default function Scouting({ data, updateData }: Props) {
     setCropData(report.cropData);
     setRecordSpray(!!report.sprayRecord);
     setSprayChemicals(report.sprayRecord?.chemicals ?? []);
+    setSprayCatalogDropdownOpen(false);
     setSprayMethod(report.sprayRecord?.applicationMethod ?? SPRAY_METHODS[0]);
     setSprayWaterVolume(report.sprayRecord?.waterVolume ?? '');
     setSprayNotes(report.sprayRecord?.notes ?? '');
@@ -806,7 +769,7 @@ export default function Scouting({ data, updateData }: Props) {
   const filtered = data.scoutingReports
     .filter(r => {
       if (filterCrop && r.cropType !== filterCrop) return false;
-      if (filterField && !r.fieldNumber.toLowerCase().includes(filterField.toLowerCase())) return false;
+      if (filterField && r.fieldNumber !== filterField) return false;
       return true;
     })
     .sort((a, b) => {
@@ -829,11 +792,8 @@ export default function Scouting({ data, updateData }: Props) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div>
         <h1 className="text-2xl font-bold text-green-900">Crop Scouting</h1>
-        <button onClick={openNew} className="btn-primary">
-          <Plus className="h-4 w-4" /> New Report
-        </button>
       </div>
 
       {/* Map toggle */}
@@ -857,18 +817,23 @@ export default function Scouting({ data, updateData }: Props) {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <input
-          className="form-input flex-1 min-w-40"
-          placeholder="Filter by field #..."
-          value={filterField}
-          onChange={e => setFilterField(e.target.value)}
-        />
-        <select className="form-input w-40" value={filterCrop} onChange={e => setFilterCrop(e.target.value as CropType | '')}>
-          <option value="">All Crops</option>
-          {CROPS.map(c => <option key={c}>{c}</option>)}
-        </select>
-        <div className="flex items-center gap-1 text-xs text-gray-500">
+      <div className="flex items-end gap-2 flex-wrap sm:flex-nowrap">
+        <div className="grid grid-cols-2 gap-2 w-full sm:w-auto flex-1 sm:flex-none">
+          <select className="form-input w-full sm:w-40" value={filterCrop} onChange={e => setFilterCrop(e.target.value as CropType | '')}>
+            <option value="">All Crops</option>
+            {CROPS.map(c => <option key={c}>{c}</option>)}
+          </select>
+          <select className="form-input w-full sm:w-40" value={filterField} onChange={e => setFilterField(e.target.value)}>
+            <option value="">All Fields</option>
+            {filterFieldOptions.map(fieldNumber => (
+              <option key={fieldNumber} value={fieldNumber}>Field {fieldNumber}</option>
+            ))}
+          </select>
+        </div>
+        <button onClick={openNew} className="btn-primary whitespace-nowrap">
+          <Plus className="h-4 w-4" /> New Report
+        </button>
+        <div className="flex items-center gap-1 text-xs text-gray-500 self-center">
           <Filter className="h-3 w-3" /> {filtered.length} report{filtered.length !== 1 ? 's' : ''}
         </div>
       </div>
@@ -1063,14 +1028,66 @@ export default function Scouting({ data, updateData }: Props) {
                       ))}
 
                       <div className="flex gap-2">
-                        <select className="form-input flex-1" value="" onChange={e => {
-                          const value = e.target.value;
-                          if (!value) return;
-                          setSprayChemicals(prev => [...prev, { name: value, rate: '', rateUnit: 'L' }]);
-                        }}>
-                          <option value="">Add from catalog</option>
-                          {sprayCatalogOptions.map(p => <option key={p} value={p}>{p}</option>)}
-                        </select>
+                        <div className="flex-1 relative">
+                          <div className="flex gap-2">
+                            <input
+                              className="form-input w-full"
+                              value={sprayCatalogInput}
+                              onChange={e => setSprayCatalogInput(e.target.value)}
+                              onFocus={() => setSprayCatalogDropdownOpen(true)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const value = sprayCatalogInput.trim();
+                                  if (!value) return;
+                                  setSprayChemicals(prev => [...prev, { name: value, rate: '', rateUnit: 'L' }]);
+                                  setSprayCatalogInput('');
+                                  setSprayCatalogDropdownOpen(false);
+                                }
+                              }}
+                              placeholder="Search/add from catalog"
+                            />
+                            <button
+                              type="button"
+                              className="btn-secondary px-2"
+                              onClick={() => setSprayCatalogDropdownOpen(open => !open)}
+                              title="Toggle product dropdown"
+                            >
+                              <ChevronDown className={`h-4 w-4 transition-transform ${sprayCatalogDropdownOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                          </div>
+                          {(sprayCatalogDropdownOpen || sprayCatalogInput.trim()) && filteredSprayCatalogOptions.length > 0 && (
+                            <div className="absolute z-20 mt-1 w-full max-h-40 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-sm">
+                              {filteredSprayCatalogOptions.map(option => (
+                                <button
+                                  key={option}
+                                  type="button"
+                                  className="block w-full px-3 py-2 text-left text-sm hover:bg-green-50"
+                                  onClick={() => {
+                                    setSprayChemicals(prev => [...prev, { name: option, rate: '', rateUnit: 'L' }]);
+                                    setSprayCatalogInput('');
+                                    setSprayCatalogDropdownOpen(false);
+                                  }}
+                                >
+                                  {option}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-secondary text-xs px-3 whitespace-nowrap"
+                          onClick={() => {
+                            const value = sprayCatalogInput.trim();
+                            if (!value) return;
+                            setSprayChemicals(prev => [...prev, { name: value, rate: '', rateUnit: 'L' }]);
+                            setSprayCatalogInput('');
+                            setSprayCatalogDropdownOpen(false);
+                          }}
+                        >
+                          Add
+                        </button>
                         <button type="button" className="btn-secondary text-xs px-3 whitespace-nowrap" onClick={() => setSprayChemicals(prev => [...prev, { name: '', rate: '', rateUnit: 'L' }])}>
                           + Custom
                         </button>
