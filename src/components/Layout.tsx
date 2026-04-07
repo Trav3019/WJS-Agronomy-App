@@ -29,6 +29,7 @@ interface Props {
 
 export default function Layout({ data, activeSeason, onSeasonChange, seasonOptions }: Props) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showFarmLogo, setShowFarmLogo] = useState(true);
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
@@ -38,10 +39,20 @@ export default function Layout({ data, activeSeason, onSeasonChange, seasonOptio
       <header className="bg-green-800 text-white shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex items-center justify-between gap-3 min-h-14 py-2">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              {showFarmLogo && (
+                <img
+                  src="/farm-logo.jpg"
+                  alt="Siemens Farming Co Ltd"
+                  className="h-10 w-auto rounded bg-white p-1 shadow-sm"
+                  onError={() => setShowFarmLogo(false)}
+                />
+              )}
               <Leaf className="h-6 w-6 text-green-300" />
-              <span className="font-bold text-lg tracking-tight">WJS Agronomy</span>
-              <span className="text-green-400 text-sm hidden sm:block">Farm Scouting & Management</span>
+              <div className="min-w-0">
+                <span className="font-bold text-lg tracking-tight block leading-tight">WJ Farm Management</span>
+                <span className="text-green-400 text-xs sm:text-sm block truncate">WJ Siemens Farming co</span>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <label className="hidden sm:inline text-xs text-green-200">Season</label>
