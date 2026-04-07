@@ -158,7 +158,7 @@ export default function Dashboard({ data }: Props) {
         {/* Right: Alerts + Activity */}
         <div className="lg:col-span-2 space-y-4">
           {/* Today's activity */}
-          <div className="card">
+          <div className="card lg:h-[33.5rem] lg:flex lg:flex-col">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <h2 className="text-base font-semibold text-green-800">Today's Activity</h2>
               <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1">
@@ -170,7 +170,7 @@ export default function Dashboard({ data }: Props) {
                 <button onClick={() => setActivityFilter('harvest')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'harvest' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-600'}`}>Harvest</button>
               </div>
             </div>
-            <div className="max-h-80 overflow-y-auto pr-1">
+            <div className="max-h-80 lg:max-h-none lg:flex-1 overflow-y-auto pr-1">
               {!hasTodayActivity ? (
                 <p className="text-sm text-gray-400 py-2">No activity recorded today.</p>
               ) : (
@@ -221,7 +221,7 @@ export default function Dashboard({ data }: Props) {
           </div>
 
           {/* Weekly scouting summary */}
-          <div className="card">
+          <div className="card lg:h-[33.5rem] lg:flex lg:flex-col">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-semibold text-green-800 flex items-center gap-2">
                 <ClipboardList className="h-5 w-5" /> This Week's Scouting
@@ -232,7 +232,7 @@ export default function Dashboard({ data }: Props) {
             {weeklyReports.length === 0 ? (
               <p className="text-sm text-gray-400 py-2">No scouting reports this week.</p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 lg:flex lg:flex-col lg:flex-1 lg:min-h-0">
                 <div className="text-sm text-gray-600">
                   <span className="font-semibold text-green-800 text-lg">{filteredWeeklyReports.length}</span>{' '}
                   reports match current filters
@@ -283,7 +283,7 @@ export default function Dashboard({ data }: Props) {
                 </div>
 
                 {/* Recent reports */}
-                <div className="max-h-56 overflow-y-auto pr-1 space-y-1">
+                <div className="max-h-56 lg:max-h-none lg:flex-1 overflow-y-auto pr-1 space-y-1">
                   {filteredWeeklyReports.map(r => (
                     <button key={r.id} onClick={() => setViewReport(r)} className="w-full flex items-center gap-2 text-sm text-gray-600 py-2 border-b border-gray-100 last:border-0 hover:bg-gray-50 rounded px-1 transition-colors text-left cursor-pointer">
                       <span className="text-base">{CROP_EMOJI[r.cropType] ?? '🌿'}</span>
@@ -301,7 +301,7 @@ export default function Dashboard({ data }: Props) {
               </div>
             )}
 
-            <Link to="/scouting" className="mt-3 text-xs text-green-700 hover:text-green-900 flex items-center gap-1">
+            <Link to="/scouting" className="mt-3 lg:mt-auto text-xs text-green-700 hover:text-green-900 flex items-center gap-1">
               View all reports <ChevronRight className="h-3 w-3" />
             </Link>
           </div>
@@ -311,13 +311,13 @@ export default function Dashboard({ data }: Props) {
       {/* Bottom row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Upcoming spray plan */}
-        <div className="card">
+        <div className="card md:h-[24rem] md:flex md:flex-col">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold text-green-800 flex items-center gap-2">
               <Syringe className="h-5 w-5" /> Upcoming Sprays
             </h2>
           </div>
-          <div className="max-h-72 overflow-y-auto pr-1">
+          <div className="max-h-72 md:max-h-none md:flex-1 overflow-y-auto pr-1">
             {data.sprayApplications.filter(a => a.status === 'planned').length === 0 ? (
               <p className="text-sm text-gray-400 py-2">No sprays planned.</p>
             ) : (
@@ -340,19 +340,19 @@ export default function Dashboard({ data }: Props) {
               </div>
             )}
           </div>
-          <Link to="/spray" className="mt-3 text-xs text-green-700 hover:text-green-900 flex items-center gap-1">
+          <Link to="/spray" className="mt-3 md:mt-auto text-xs text-green-700 hover:text-green-900 flex items-center gap-1">
             Manage spray plan <ChevronRight className="h-3 w-3" />
           </Link>
         </div>
 
         {/* Latest potato yields */}
-        <div className="card">
+        <div className="card md:h-[24rem] md:flex md:flex-col">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold text-green-800 flex items-center gap-2">
               <Sprout className="h-5 w-5" /> Recent Potato Yields
             </h2>
           </div>
-          <div className="max-h-72 overflow-y-auto pr-1">
+          <div className="max-h-72 md:max-h-none md:flex-1 overflow-y-auto pr-1">
             {latestYield.length === 0 ? (
               <p className="text-sm text-gray-400 py-2">No yield reports yet.</p>
             ) : (
@@ -373,7 +373,7 @@ export default function Dashboard({ data }: Props) {
               </div>
             )}
           </div>
-          <Link to="/potato-yield" className="mt-3 text-xs text-green-700 hover:text-green-900 flex items-center gap-1">
+          <Link to="/potato-yield" className="mt-3 md:mt-auto text-xs text-green-700 hover:text-green-900 flex items-center gap-1">
             View all yield reports <ChevronRight className="h-3 w-3" />
           </Link>
         </div>
