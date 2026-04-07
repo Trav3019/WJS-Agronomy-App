@@ -3,7 +3,8 @@ import type { AppData, HarvestReport, WeatherData } from '../types';
 import { generateId, saveHarvestReport, deleteHarvestReport } from '../utils/storage';
 import { getHistoricalWeather } from '../utils/weather';
 import { VARIETIES_BY_CROP } from '../utils/varieties';
-import { Plus, Trash2, Eye, X } from 'lucide-react';
+import { Plus, Trash2, Eye, X, Camera } from 'lucide-react';
+import PhotoCapture from '../components/PhotoCapture';
 
 interface Props {
   data: AppData;
@@ -18,6 +19,7 @@ const POTATO_TUBER_DEFECT_OPTIONS = ['Greening', 'Hollow Heart', 'Scab', 'Rhizoc
 export default function Harvest({ data, updateData }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [viewReport, setViewReport] = useState<HarvestReport | null>(null);
+  const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [fieldFilter, setFieldFilter] = useState('');
   const [weatherLoading, setWeatherLoading] = useState(false);
@@ -40,6 +42,7 @@ export default function Harvest({ data, updateData }: Props) {
     tuberDefects: [] as string[],
     tuberTemp: '',
     weatherData: '',
+    photos: [] as string[],
     notes: '',
   });
 
@@ -59,6 +62,7 @@ export default function Harvest({ data, updateData }: Props) {
       tuberDefects: [],
       tuberTemp: '',
       weatherData: '',
+      photos: [],
       notes: '',
     });
     setShowForm(true);
@@ -80,6 +84,7 @@ export default function Harvest({ data, updateData }: Props) {
       tuberDefects: report.tuberDefects ?? [],
       tuberTemp: report.tuberTemp?.toString() ?? '',
       weatherData: report.weatherData ?? '',
+      photos: report.photos ?? [],
       notes: report.notes ?? '',
     });
     setShowForm(true);
@@ -105,6 +110,7 @@ export default function Harvest({ data, updateData }: Props) {
       tuberDefects: selectedField.cropType === 'Potatoes' ? (form.tuberDefects.length ? form.tuberDefects : undefined) : undefined,
       tuberTemp: selectedField.cropType === 'Potatoes' ? (form.tuberTemp ? Number(form.tuberTemp) : undefined) : undefined,
       weatherData: selectedField.cropType === 'Potatoes' ? (form.weatherData.trim() || undefined) : undefined,
+      photos: selectedField.cropType === 'Potatoes' ? (form.photos.length ? form.photos : undefined) : undefined,
       notes: form.notes.trim() || undefined,
       createdAt: editingId
         ? (data.harvestReports.find(r => r.id === editingId)?.createdAt ?? now)
@@ -232,6 +238,7 @@ export default function Harvest({ data, updateData }: Props) {
                       {r.date}
                       {r.yieldValue !== undefined ? ` · ${r.yieldValue} ${r.yieldUnit ?? ''}` : ''}
                       {r.moisture !== undefined ? ` · ${r.moisture}% moisture` : ''}
+                      {r.photos?.length ? ` · ${r.photos.length} photo${r.photos.length === 1 ? '' : 's'}` : ''}
                     </div>
                     {r.notes && <div className="text-sm text-gray-600 mt-1 truncate">{r.notes}</div>}
                   </div>
@@ -354,6 +361,10 @@ export default function Harvest({ data, updateData }: Props) {
                       {weatherLoading && <p className="text-xs text-gray-500 mt-1">Auto-populating weather...</p>}
                       {!weatherLoading && weatherError && <p className="text-xs text-red-600 mt-1">{weatherError}</p>}
                     </div>
+                    <div className="sm:col-span-2">
+                      <label className="form-label">Photos</label>
+                      <PhotoCapture photos={form.photos} onChange={photos => setForm(prev => ({ ...prev, photos }))} maxPhotos={6} />
+                    </div>
                   </>
                 ) : (
                   <>
@@ -406,6 +417,21 @@ export default function Harvest({ data, updateData }: Props) {
               {viewReport.cropType === 'Potatoes' && viewReport.tuberDefects?.length && <div><span className="text-gray-500">Tuber Defects:</span> <span className="font-medium">{viewReport.tuberDefects.join(', ')}</span></div>}
               {viewReport.cropType === 'Potatoes' && viewReport.tuberTemp !== undefined && <div><span className="text-gray-500">Tuber Temp:</span> <span className="font-medium">{viewReport.tuberTemp}</span></div>}
               {viewReport.cropType === 'Potatoes' && viewReport.weatherData && <div><span className="text-gray-500">Weather Data:</span> <span className="font-medium">{viewReport.weatherData}</span></div>}
+              {viewReport.photos?.length ? (
+                <div className="mt-3">
+                  <div className="flex items-center gap-2 text-gray-700 font-medium mb-2">
+                    <Camera className="h-4 w-4" />
+                    Photos ({viewReport.photos.length})
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {viewReport.photos.map((photo, idx) => (
+                      <button key={`${viewReport.id}-photo-${idx}`} type="button" className="focus:outline-none" onClick={() => setPreviewPhoto(photo)}>
+                        <img src={photo} alt={`Harvest photo ${idx + 1}`} className="h-16 w-16 rounded object-cover border border-gray-200 hover:opacity-90" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               {viewReport.notes && <div className="bg-gray-50 rounded-lg p-3 text-gray-600 mt-2">{viewReport.notes}</div>}
             </div>
             <div className="flex justify-end gap-3 p-5 border-t bg-gray-50">
@@ -415,6 +441,12 @@ export default function Harvest({ data, updateData }: Props) {
               <button onClick={() => { openEdit(viewReport); setViewReport(null); }} className="btn-primary">Edit</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {previewPhoto && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[9999] p-4" onClick={() => setPreviewPhoto(null)}>
+          <img src={previewPhoto} alt="Harvest photo preview" className="max-w-full max-h-[85vh] rounded-lg object-contain" />
         </div>
       )}
     </div>
