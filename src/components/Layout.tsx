@@ -21,9 +21,12 @@ const navItems = [
 
 interface Props {
   data: AppData;
+  activeSeason: string;
+  onSeasonChange: (seasonYear: string) => void;
+  seasonOptions: string[];
 }
 
-export default function Layout({ data }: Props) {
+export default function Layout({ data, activeSeason, onSeasonChange, seasonOptions }: Props) {
   return (
     <div className="flex flex-col min-h-screen bg-green-50">
       {/* Header */}
@@ -36,6 +39,17 @@ export default function Layout({ data }: Props) {
               <span className="text-green-400 text-sm hidden sm:block">Farm Scouting & Management</span>
             </div>
             <div className="flex items-center gap-2">
+              <label className="hidden sm:inline text-xs text-green-200">Season</label>
+              <select
+                className="h-8 rounded-md bg-green-900 border border-green-600 text-sm px-2 text-white"
+                value={activeSeason}
+                onChange={e => onSeasonChange(e.target.value)}
+                aria-label="Select season year"
+              >
+                {seasonOptions.map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
               <button onClick={() => exportAiDataJson(data)} className="px-3 py-1.5 rounded-md bg-green-600 hover:bg-green-500 text-sm font-medium transition-colors">
                 Export AI JSON
               </button>
