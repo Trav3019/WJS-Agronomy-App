@@ -15,6 +15,7 @@ interface ForecastDay {
 
 const DEFAULT_LAT = 49.1215;
 const DEFAULT_LNG = -97.9316;
+const MM_PER_INCH = 25.4;
 
 const WMO_ICON: Record<number, string> = {
   0: '☀️', 1: '🌤', 2: '⛅', 3: '☁️',
@@ -29,6 +30,10 @@ const WMO_ICON: Record<number, string> = {
 
 function getWeatherEmoji(code: number): string {
   return WMO_ICON[code] ?? '🌡';
+}
+
+function mmToInches(mm: number): number {
+  return mm / MM_PER_INCH;
 }
 
 export default function WeatherWidget() {
@@ -111,6 +116,7 @@ export default function WeatherWidget() {
   if (!weather) return null;
 
   const selectedForecast = forecast[selectedForecastIndex] ?? null;
+  const dayRain = forecast[0]?.precipitation ?? weather.precipitation ?? 0;
   const weekRain = forecast.reduce((sum, day) => sum + day.precipitation, 0);
 
   return (
@@ -141,7 +147,7 @@ export default function WeatherWidget() {
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-blue-50 rounded-lg p-2 text-center">
           <Droplets className="h-4 w-4 text-blue-500 mx-auto mb-1" />
-          <div className="text-sm font-medium text-blue-700">{weather.precipitation} mm</div>
+          <div className="text-sm font-medium text-blue-700">{mmToInches(weather.precipitation).toFixed(2)} in</div>
           <div className="text-xs text-gray-500">Precip</div>
         </div>
         <div className="bg-gray-50 rounded-lg p-2 text-center">
@@ -159,9 +165,15 @@ export default function WeatherWidget() {
       {/* 7-day forecast */}
       {forecast.length > 0 && (
         <div>
-          <div className="mb-2 rounded-lg bg-blue-50 p-3">
-            <div className="text-xs text-blue-700">7-Day Rain Accumulation</div>
-            <div className="text-xl font-semibold text-blue-800">{weekRain.toFixed(1)} mm</div>
+          <div className="mb-2 grid grid-cols-2 gap-2">
+            <div className="rounded-lg bg-blue-50 p-3">
+              <div className="text-xs text-blue-700">Single-Day Rain Accumulation</div>
+              <div className="text-xl font-semibold text-blue-800">{mmToInches(dayRain).toFixed(2)} in</div>
+            </div>
+            <div className="rounded-lg bg-blue-50 p-3">
+              <div className="text-xs text-blue-700">7-Day Rain Accumulation</div>
+              <div className="text-xl font-semibold text-blue-800">{mmToInches(weekRain).toFixed(2)} in</div>
+            </div>
           </div>
           <h3 className="text-sm font-semibold text-gray-600 mb-2">7-Day Forecast</h3>
           <div className="grid grid-cols-7 gap-1">
@@ -179,7 +191,7 @@ export default function WeatherWidget() {
                 <div className="text-xs font-medium text-red-600">{Math.round(day.temperatureMax)}°</div>
                 <div className="text-xs text-blue-600">{Math.round(day.temperatureMin)}°</div>
                 {day.precipitation > 0 && (
-                  <div className="text-xs text-blue-500">{day.precipitation.toFixed(1)}</div>
+                  <div className="text-xs text-blue-500">{mmToInches(day.precipitation).toFixed(2)} in</div>
                 )}
               </button>
             ))}
@@ -208,7 +220,7 @@ export default function WeatherWidget() {
                 </div>
                 <div className="rounded-lg bg-white p-2">
                   <div className="text-gray-500">Rain</div>
-                  <div className="font-medium text-gray-800">{selectedForecast.precipitation.toFixed(1)} mm</div>
+                  <div className="font-medium text-gray-800">{mmToInches(selectedForecast.precipitation).toFixed(2)} in</div>
                 </div>
                 <div className="rounded-lg bg-white p-2 col-span-2">
                   <div className="text-gray-500">Wind</div>
