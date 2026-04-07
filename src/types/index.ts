@@ -262,6 +262,7 @@ export interface SeedingEntry {
   groundTemperature?: number;
   seedCutDate?: string;
   seedingRate: number; // seeds/acre
+  seedingRateCwtAc?: number; // cwt/acre (for potatoes)
   rowSpacing?: number; // inches
   seedDepth?: number; // inches
   population?: number; // seeds/acre
