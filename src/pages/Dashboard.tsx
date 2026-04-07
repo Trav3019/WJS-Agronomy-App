@@ -492,7 +492,7 @@ export default function Dashboard({ data }: Props) {
                     {viewReport.sprayRecord.chemicals.map((c, i) => (
                       <div key={`${c.name}-${i}`} className="flex justify-between gap-3">
                         <span className="font-medium">{c.name}</span>
-                        {c.rate && <span className="text-gray-600 whitespace-nowrap">{c.rate} L</span>}
+                        {c.rate && <span className="text-gray-600 whitespace-nowrap">{c.rate} {c.rateUnit || 'L'}</span>}
                       </div>
                     ))}
                     <div><span className="text-gray-500">Method:</span> <span className="font-medium">{viewReport.sprayRecord.applicationMethod}</span></div>
@@ -545,7 +545,7 @@ export default function Dashboard({ data }: Props) {
                         {(viewSpray.chemicals ?? []).map((chem, idx) => (
                           <tr key={`${chem.name}-${idx}`} className="hover:bg-gray-50">
                             <td className="px-3 py-1.5 border border-gray-200">{chem.name || '-'}</td>
-                            <td className="px-3 py-1.5 border border-gray-200">{chem.rate ? `${chem.rate} L` : '-'}</td>
+                            <td className="px-3 py-1.5 border border-gray-200">{chem.rate ? `${chem.rate} ${chem.rateUnit || 'L'}` : '-'}</td>
                           </tr>
                         ))}
                       </tbody>
