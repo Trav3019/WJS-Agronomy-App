@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { AppData, TillageReport } from '../types';
 import { generateId, saveTillageReport, deleteTillageReport } from '../utils/storage';
 import { Plus, Trash2, Eye, X } from 'lucide-react';
@@ -28,9 +28,25 @@ export default function Tillage({ data, updateData }: Props) {
   const [viewReport, setViewReport] = useState<TillageReport | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [fieldFilter, setFieldFilter] = useState('');
+  const [cropFilter, setCropFilter] = useState('');
   const orderedFields = [...data.fields].sort((a, b) =>
     a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' })
   );
+  const fieldOptions = Array.from(
+    new Set(
+      orderedFields
+        .filter(f => !cropFilter || f.cropType === cropFilter)
+        .map(f => f.fieldNumber)
+    )
+  );
+  const cropOptions = Array.from(new Set(data.fields.map(f => f.cropType))).sort((a, b) => a.localeCompare(b));
+  const fieldById = new Map(data.fields.map(f => [f.id, f]));
+
+  useEffect(() => {
+    if (fieldFilter && !fieldOptions.includes(fieldFilter)) {
+      setFieldFilter('');
+    }
+  }, [cropFilter, fieldFilter, fieldOptions]);
   const [form, setForm] = useState({
     fieldId: '',
     date: new Date().toISOString().split('T')[0],
@@ -89,7 +105,12 @@ export default function Tillage({ data, updateData }: Props) {
   }
 
   const reports = data.tillageReports
-    .filter(r => !fieldFilter || r.fieldNumber.toLowerCase().includes(fieldFilter.toLowerCase()))
+    .filter(r => {
+      const fieldMatches = !fieldFilter || r.fieldNumber === fieldFilter;
+      const cropType = fieldById.get(r.fieldId)?.cropType ?? '';
+      const cropMatches = !cropFilter || cropType === cropFilter;
+      return fieldMatches && cropMatches;
+    })
     .sort((a, b) => b.date.localeCompare(a.date));
 
   return (
@@ -99,14 +120,30 @@ export default function Tillage({ data, updateData }: Props) {
         <p className="text-sm text-gray-500 mt-1">Track tillage operations by field and date.</p>
       </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <input
-          className="form-input max-w-xs"
-          placeholder="Filter by field #..."
-          value={fieldFilter}
-          onChange={e => setFieldFilter(e.target.value)}
-        />
-        <button onClick={openNew} className="btn-primary">
+      <div className="flex items-end gap-2 flex-wrap sm:flex-nowrap">
+        <div className="grid grid-cols-2 gap-2 w-full sm:w-auto flex-1 sm:flex-none">
+          <select
+            className="form-input w-full sm:w-40"
+            value={fieldFilter}
+            onChange={e => setFieldFilter(e.target.value)}
+          >
+            <option value="">All fields</option>
+            {fieldOptions.map(fieldNumber => (
+              <option key={fieldNumber} value={fieldNumber}>Field {fieldNumber}</option>
+            ))}
+          </select>
+          <select
+            className="form-input w-full sm:w-40"
+            value={cropFilter}
+            onChange={e => setCropFilter(e.target.value)}
+          >
+            <option value="">All crops</option>
+            {cropOptions.map(crop => (
+              <option key={crop} value={crop}>{crop}</option>
+            ))}
+          </select>
+        </div>
+        <button onClick={openNew} className="btn-primary whitespace-nowrap">
           <Plus className="h-4 w-4" /> New Report
         </button>
       </div>
@@ -121,7 +158,9 @@ export default function Tillage({ data, updateData }: Props) {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-green-900">Field {r.fieldNumber}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">{r.date} · {r.method}{r.depthInches ? ` · ${r.depthInches} in` : ''}</div>
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      {r.date} · {fieldById.get(r.fieldId)?.cropType ?? 'Unknown crop'} · {r.method}{r.depthInches ? ` · ${r.depthInches} in` : ''}
+                    </div>
                     {r.notes && <div className="text-sm text-gray-600 mt-1 truncate">{r.notes}</div>}
                   </div>
                   <div className="flex gap-2 shrink-0">
