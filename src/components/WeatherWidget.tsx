@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Cloud, Droplets, Wind, Thermometer, Loader2, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Cloud, Droplets, Wind, Thermometer, Loader2, AlertTriangle } from 'lucide-react';
 import { getCurrentWeather, getWeeklyForecast } from '../utils/weather';
 import type { WeatherData } from '../types';
 
@@ -35,7 +35,6 @@ export default function WeatherWidget() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [forecast, setForecast] = useState<ForecastDay[]>([]);
   const [selectedForecastIndex, setSelectedForecastIndex] = useState(0);
-  const [showForecast, setShowForecast] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -112,6 +111,7 @@ export default function WeatherWidget() {
   if (!weather) return null;
 
   const selectedForecast = forecast[selectedForecastIndex] ?? null;
+  const weekRain = forecast.reduce((sum, day) => sum + day.precipitation, 0);
 
   return (
     <div className="card space-y-4">
@@ -156,23 +156,13 @@ export default function WeatherWidget() {
         </div>
       </div>
 
-      {forecast.length > 0 && (
-        <button
-          type="button"
-          onClick={() => setShowForecast(current => !current)}
-          className="flex w-full items-center justify-between rounded-lg bg-blue-50 p-3 text-left text-blue-800 transition-colors hover:bg-blue-100"
-        >
-          <div>
-            <div className="text-sm font-semibold">7-Day Forecast</div>
-            <div className="text-xs text-blue-700">Tap to {showForecast ? 'hide' : 'view'} the weekly outlook</div>
-          </div>
-          {showForecast ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-        </button>
-      )}
-
       {/* 7-day forecast */}
-      {showForecast && forecast.length > 0 && (
+      {forecast.length > 0 && (
         <div>
+          <div className="mb-2 rounded-lg bg-blue-50 p-3">
+            <div className="text-xs text-blue-700">7-Day Rain Accumulation</div>
+            <div className="text-xl font-semibold text-blue-800">{weekRain.toFixed(1)} mm</div>
+          </div>
           <h3 className="text-sm font-semibold text-gray-600 mb-2">7-Day Forecast</h3>
           <div className="grid grid-cols-7 gap-1">
             {forecast.map((day, i) => (
