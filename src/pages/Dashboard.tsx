@@ -14,7 +14,7 @@ interface Props {
 }
 
 const CROP_EMOJI: Record<string, string> = {
-  Corn: '🌽', Canola: '🌻', Soybeans: '🫘', Wheat: '🌾',
+  Corn: '🌽', Canola: '🥬', Soybeans: '🫛', Wheat: '🌾',
   'Edible Beans': '🫘', Oats: '🌾', Potatoes: '🥔',
 };
 
