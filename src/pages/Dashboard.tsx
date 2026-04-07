@@ -74,6 +74,10 @@ export default function Dashboard({ data }: Props) {
     return priorityFilteredWeeklyReports.filter(r => r.cropType === weeklyCropFilter);
   }, [priorityFilteredWeeklyReports, weeklyCropFilter]);
 
+  const sortedWeeklyReports = useMemo(() => {
+    return [...filteredWeeklyReports].sort((a, b) => b.date.localeCompare(a.date));
+  }, [filteredWeeklyReports]);
+
   // Weekly scouting breakdown by crop
   const weeklyByCrop = useMemo(() => {
     const map: Record<string, number> = {};
@@ -344,7 +348,7 @@ export default function Dashboard({ data }: Props) {
 
                 {/* Recent reports */}
                 <div className="max-h-56 lg:max-h-none lg:flex-1 overflow-y-auto pr-1 space-y-1">
-                  {filteredWeeklyReports.map(r => (
+                  {sortedWeeklyReports.map(r => (
                     <button key={r.id} onClick={() => setViewReport(r)} className="w-full flex items-center gap-2 text-sm text-gray-600 py-2 border-b border-gray-100 last:border-0 hover:bg-gray-50 rounded px-1 transition-colors text-left cursor-pointer">
                       <span className="text-base">{CROP_EMOJI[r.cropType] ?? '🌿'}</span>
                       <span className="font-medium">Field {r.fieldNumber}</span>
@@ -354,7 +358,7 @@ export default function Dashboard({ data }: Props) {
                       </span>
                     </button>
                   ))}
-                  {filteredWeeklyReports.length === 0 && (
+                  {sortedWeeklyReports.length === 0 && (
                     <p className="text-sm text-gray-400 py-2">No reports match this priority this week.</p>
                   )}
                 </div>
@@ -384,7 +388,7 @@ export default function Dashboard({ data }: Props) {
               <div className="space-y-2">
                 {data.sprayApplications
                   .filter(a => a.status === 'planned')
-                  .sort((a, b) => a.plannedDate.localeCompare(b.plannedDate))
+                  .sort((a, b) => b.plannedDate.localeCompare(a.plannedDate))
                   .map(a => (
                     <button key={a.id} onClick={() => setViewSpray(a)} className={`w-full text-left flex items-center gap-3 text-sm rounded-lg p-2.5 transition-colors ${a.priority === 'high' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'}`}>
                       <Syringe className={`h-4 w-4 shrink-0 ${a.priority === 'high' ? 'text-red-500' : 'text-purple-500'}`} />
