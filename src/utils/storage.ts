@@ -1,6 +1,8 @@
 import type { AppData, Field, ScoutingReport, PotatoYieldReport, SprayApplication, SeedingEntry, TillageReport, HarvestReport, PotatoStorageBin } from '../types';
 
-const STORAGE_KEY = 'wjs-agronomy-data';
+const LEGACY_STORAGE_KEY = 'wjs-agronomy-data';
+const STORAGE_KEY_PREFIX = 'wjs-agronomy-data-season-';
+const ACTIVE_SEASON_KEY = 'wjs-agronomy-active-season';
 
 const defaultData: AppData = {
   fields: [],
@@ -15,10 +17,80 @@ const defaultData: AppData = {
   customBinCapacities: {},
 };
 
-export function loadData(): AppData {
+function isValidSeasonYear(value: string | null | undefined): value is string {
+  return typeof value === 'string' && /^\d{4}$/.test(value);
+}
+
+function seasonStorageKey(seasonYear: string): string {
+  return `${STORAGE_KEY_PREFIX}${seasonYear}`;
+}
+
+function migrateLegacyDataToCurrentSeason(): void {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const currentSeason = getCurrentSeasonYear();
+    const seasonKey = seasonStorageKey(currentSeason);
+    if (localStorage.getItem(seasonKey)) return;
+    const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+    if (legacy) localStorage.setItem(seasonKey, legacy);
+  } catch {
+    // Ignore migration failures and fallback to defaults.
+  }
+}
+
+export function getCurrentSeasonYear(): string {
+  return String(new Date().getFullYear());
+}
+
+export function getActiveSeasonYear(): string {
+  try {
+    const value = localStorage.getItem(ACTIVE_SEASON_KEY);
+    return isValidSeasonYear(value) ? value : getCurrentSeasonYear();
+  } catch {
+    return getCurrentSeasonYear();
+  }
+}
+
+export function setActiveSeasonYear(seasonYear: string): void {
+  if (!isValidSeasonYear(seasonYear)) return;
+  try {
+    localStorage.setItem(ACTIVE_SEASON_KEY, seasonYear);
+  } catch {
+    // Ignore write failures.
+  }
+}
+
+export function getAvailableSeasonYears(): string[] {
+  try {
+    const years = new Set<string>();
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (!key || !key.startsWith(STORAGE_KEY_PREFIX)) continue;
+      const year = key.slice(STORAGE_KEY_PREFIX.length);
+      if (isValidSeasonYear(year)) years.add(year);
+    }
+
+    const active = getActiveSeasonYear();
+    years.add(active);
+
+    return [...years].sort((a, b) => Number(b) - Number(a));
+  } catch {
+    return [getCurrentSeasonYear()];
+  }
+}
+
+export function loadData(seasonYear: string = getActiveSeasonYear()): AppData {
+  try {
+    migrateLegacyDataToCurrentSeason();
+    const raw = localStorage.getItem(seasonStorageKey(seasonYear));
     if (!raw) return defaultData;
+
+    // If a non-current season accidentally got cloned from legacy data, treat it as empty.
+    const currentSeason = getCurrentSeasonYear();
+    if (seasonYear !== currentSeason) {
+      const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (legacy && raw === legacy) return defaultData;
+    }
+
     const parsed = JSON.parse(raw);
     return { ...defaultData, ...parsed };
   } catch {
@@ -26,9 +98,9 @@ export function loadData(): AppData {
   }
 }
 
-export function saveData(data: AppData): void {
+export function saveData(data: AppData, seasonYear: string = getActiveSeasonYear()): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(seasonStorageKey(seasonYear), JSON.stringify(data));
   } catch (e) {
     console.error('Failed to save data:', e);
   }
