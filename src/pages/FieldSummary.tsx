@@ -64,10 +64,11 @@ function formatLocation(location?: GeoLocation): string | null {
 export default function FieldSummary({ data }: Props) {
   const [fieldFilter, setFieldFilter] = useState('');
   const [cropFilter, setCropFilter] = useState<CropType | ''>('');
+  const [operationFilter, setOperationFilter] = useState<FieldOperation['type'] | ''>('');
   const [selectedOperation, setSelectedOperation] = useState<{ fieldNumber: string; operation: FieldOperation } | null>(null);
-  const totalFields = data.fields.length;
-  const totalAcres = data.fields.reduce((sum, field) => sum + (field.acres || 0), 0);
   const cropOptions = Array.from(new Set(data.fields.map(f => f.cropType))).sort();
+  const operationOptions = (Object.keys(OPERATION_ORDER) as FieldOperation['type'][])
+    .sort((a, b) => OPERATION_ORDER[a] - OPERATION_ORDER[b]);
   const fieldOptions = Array.from(
     new Set(
       data.fields
@@ -247,10 +248,13 @@ export default function FieldSummary({ data }: Props) {
     return { field, operations, seedingRecords };
   });
 
-  const filteredOperationsByField = operationsByField.filter(({ field }) => {
+  const filteredOperationsByField = operationsByField.filter(({ field, operations, seedingRecords }) => {
     if (fieldFilter && !field.fieldNumber.toLowerCase().includes(fieldFilter.toLowerCase())) return false;
     if (cropFilter && field.cropType !== cropFilter) return false;
-    return true;
+    if (!operationFilter) return true;
+    const hasMatchingOperations = operations.some(op => op.type === operationFilter);
+    const hasMatchingSeedingRecords = operationFilter === 'Seeding Record' && seedingRecords.length > 0;
+    return hasMatchingOperations || hasMatchingSeedingRecords;
   });
 
   return (
@@ -260,19 +264,8 @@ export default function FieldSummary({ data }: Props) {
         <p className="text-sm text-gray-500 mt-1">Quick overview of your fields and total acreage.</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="card">
-          <div className="text-sm text-gray-500">Total Fields</div>
-          <div className="text-2xl font-semibold text-green-800 mt-1">{totalFields}</div>
-        </div>
-        <div className="card">
-          <div className="text-sm text-gray-500">Total Acres</div>
-          <div className="text-2xl font-semibold text-green-800 mt-1">{totalAcres.toFixed(1)}</div>
-        </div>
-      </div>
-
       <div className="card">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
           <div>
             <label className="form-label">Filter by Field Number</label>
             <select className="form-input" value={fieldFilter} onChange={e => setFieldFilter(e.target.value)}>
@@ -287,6 +280,13 @@ export default function FieldSummary({ data }: Props) {
               {cropOptions.map(crop => <option key={crop} value={crop}>{crop}</option>)}
             </select>
           </div>
+          <div>
+            <label className="form-label">Filter by Operation</label>
+            <select className="form-input" value={operationFilter} onChange={e => setOperationFilter(e.target.value as FieldOperation['type'] | '')}>
+              <option value="">All Operations</option>
+              {operationOptions.map(operation => <option key={operation} value={operation}>{operation}</option>)}
+            </select>
+          </div>
           <div className="text-sm text-gray-500">Showing {filteredOperationsByField.length} field{filteredOperationsByField.length !== 1 ? 's' : ''}</div>
         </div>
       </div>
@@ -294,21 +294,26 @@ export default function FieldSummary({ data }: Props) {
       <div className="space-y-4">
         {filteredOperationsByField.length === 0 ? (
           <div className="card text-gray-500">No fields found. Add fields to see summaries.</div>
-        ) : filteredOperationsByField.map(({ field, operations, seedingRecords }) => (
+        ) : filteredOperationsByField.map(({ field, operations, seedingRecords }) => {
+          const visibleOperations = operationFilter ? operations.filter(op => op.type === operationFilter) : operations;
+          const visibleSeedingRecords = !operationFilter || operationFilter === 'Seeding Record' ? seedingRecords : [];
+          const totalVisibleOperations = visibleOperations.length + visibleSeedingRecords.length;
+
+          return (
           <div key={field.id} className="card">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <div>
                 <h2 className="text-base font-semibold text-green-900">Field {field.fieldNumber}</h2>
                 <p className="text-xs text-gray-500">{field.cropType}{field.variety ? ` - ${field.variety}` : ''} · {field.acres || 0} acres</p>
               </div>
-              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">{operations.length} operation{operations.length !== 1 ? 's' : ''}</span>
+              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">{totalVisibleOperations} operation{totalVisibleOperations !== 1 ? 's' : ''}</span>
             </div>
 
-            {operations.length === 0 ? (
+            {totalVisibleOperations === 0 ? (
               <p className="text-sm text-gray-400">No operations recorded for this field yet.</p>
             ) : (
               <div className="space-y-2">
-                {operations.map((op, idx) => (
+                {visibleOperations.map((op, idx) => (
                   <button
                     type="button"
                     key={`${field.id}-${op.id}-${op.type}-${op.date}-${idx}`}
@@ -326,10 +331,10 @@ export default function FieldSummary({ data }: Props) {
               </div>
             )}
 
-            {seedingRecords.length > 0 && (
+            {visibleSeedingRecords.length > 0 && (
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <div className="space-y-2">
-                  {seedingRecords.map((record, idx) => (
+                  {visibleSeedingRecords.map((record, idx) => (
                     <button
                       type="button"
                       key={`${field.id}-${record.id}-${idx}`}
@@ -348,7 +353,8 @@ export default function FieldSummary({ data }: Props) {
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {selectedOperation && (
