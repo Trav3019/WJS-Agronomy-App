@@ -2,6 +2,7 @@ import { lazy, Suspense, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { AppData, ScoutingReport, SprayApplication, SeedingEntry, PotatoYieldReport, TillageReport } from '../types';
 import WeatherWidget from '../components/WeatherWidget';
+import SoilTemperatureWidget from '../components/SoilTemperatureWidget';
 import {
   ClipboardList, Syringe, Sprout, Wrench, CalendarDays, Wheat,
   ChevronRight, X
@@ -34,6 +35,7 @@ function toDisplayValue(value: unknown): string {
 export default function Dashboard({ data }: Props) {
   const [activityFilter, setActivityFilter] = useState<'all' | 'scouting' | 'spray' | 'seeding' | 'tillage' | 'harvest'>('all');
   const [weeklyPriorityFilter, setWeeklyPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
+  const [weeklyCropFilter, setWeeklyCropFilter] = useState<string>('all');
   const [viewReport, setViewReport] = useState<ScoutingReport | null>(null);
   const [viewSpray, setViewSpray] = useState<SprayApplication | null>(null);
   const [viewSeeding, setViewSeeding] = useState<SeedingEntry | null>(null);
@@ -62,24 +64,28 @@ export default function Dashboard({ data }: Props) {
     catch { return false; }
   });
 
-  const filteredWeeklyReports = useMemo(() => {
+  const priorityFilteredWeeklyReports = useMemo(() => {
     if (weeklyPriorityFilter === 'all') return weeklyReports;
     return weeklyReports.filter(r => r.priority === weeklyPriorityFilter);
   }, [weeklyReports, weeklyPriorityFilter]);
 
+  const filteredWeeklyReports = useMemo(() => {
+    if (weeklyCropFilter === 'all') return priorityFilteredWeeklyReports;
+    return priorityFilteredWeeklyReports.filter(r => r.cropType === weeklyCropFilter);
+  }, [priorityFilteredWeeklyReports, weeklyCropFilter]);
+
   // Weekly scouting breakdown by crop
   const weeklyByCrop = useMemo(() => {
     const map: Record<string, number> = {};
-    filteredWeeklyReports.forEach(r => {
+    priorityFilteredWeeklyReports.forEach(r => {
       map[r.cropType] = (map[r.cropType] ?? 0) + 1;
     });
     return map;
-  }, [filteredWeeklyReports]);
+  }, [priorityFilteredWeeklyReports]);
 
   // Latest potato yield
   const latestYield = data.potatoYieldReports
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 3);
+    .sort((a, b) => b.date.localeCompare(a.date));
 
   return (
     <>
@@ -144,8 +150,9 @@ export default function Dashboard({ data }: Props) {
       {/* Main grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Weather */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 space-y-4">
           <WeatherWidget />
+          <SoilTemperatureWidget />
         </div>
 
         {/* Right: Alerts + Activity */}
@@ -163,52 +170,54 @@ export default function Dashboard({ data }: Props) {
                 <button onClick={() => setActivityFilter('harvest')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'harvest' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-600'}`}>Harvest</button>
               </div>
             </div>
-            {!hasTodayActivity ? (
-              <p className="text-sm text-gray-400 py-2">No activity recorded today.</p>
-            ) : (
-              <div className="space-y-2">
-                {(activityFilter === 'all' || activityFilter === 'scouting') && todayScouting.map(r => (
-                  <button key={r.id} onClick={() => setViewReport(r)} className="w-full flex items-center gap-2 text-sm bg-blue-50 rounded-lg p-2.5 text-left hover:bg-blue-100 transition-colors">
-                    <ClipboardList className="h-4 w-4 text-blue-600" />
-                    <span>Scouted <span className="font-medium">Field {r.fieldNumber}</span> — {r.cropType}</span>
-                  </button>
-                ))}
-                {(activityFilter === 'all' || activityFilter === 'spray') && todaySpray.map(a => (
-                  <button key={a.id} onClick={() => setViewSpray(a)} className={`w-full text-left flex items-center gap-2 text-sm rounded-lg p-2.5 transition-colors ${a.appliedDate === todayStr ? 'bg-green-50 hover:bg-green-100' : 'bg-purple-50 hover:bg-purple-100'}`}>
-                    <Syringe className={`h-4 w-4 ${a.appliedDate === todayStr ? 'text-green-600' : 'text-purple-600'}`} />
-                    <span>
-                      {a.appliedDate === todayStr ? 'Applied' : 'Planned'}: <span className="font-medium">{a.product}</span>
-                      {a.fieldNumbers.length > 0 && ` — Fields: ${a.fieldNumbers.join(', ')}`}
-                    </span>
-                  </button>
-                ))}
-                {(activityFilter === 'all' || activityFilter === 'seeding') && todaySeeding.map(e => (
-                  <button key={e.id} onClick={() => setViewSeeding(e)} className="w-full text-left flex items-center gap-2 text-sm bg-amber-50 rounded-lg p-2.5 hover:bg-amber-100 transition-colors">
-                    <CalendarDays className="h-4 w-4 text-amber-600" />
-                    <span>Seeded <span className="font-medium">Field {e.fieldNumber}</span> — {e.cropType}</span>
-                  </button>
-                ))}
-                {(activityFilter === 'all' || activityFilter === 'tillage') && todayTillage.map(r => (
-                  <button key={r.id} onClick={() => setViewTillage(r)} className="w-full text-left flex items-center gap-2 text-sm bg-green-50 rounded-lg p-2.5 hover:bg-green-100 transition-colors">
-                    <Wrench className="h-4 w-4 text-green-600" />
-                    <span>Tillage on <span className="font-medium">Field {r.fieldNumber}</span> — {r.method}</span>
-                  </button>
-                ))}
-                {(activityFilter === 'all' || activityFilter === 'harvest') && todayHarvest.map(r => (
-                  <Link key={r.id} to="/harvest" className="w-full text-left flex items-center gap-2 text-sm bg-orange-50 rounded-lg p-2.5 hover:bg-orange-100 transition-colors">
-                    <Wheat className="h-4 w-4 text-orange-600" />
-                    <span>Harvested <span className="font-medium">Field {r.fieldNumber}</span> — {r.cropType}</span>
-                  </Link>
-                ))}
-                {((activityFilter === 'scouting' && todayScouting.length === 0)
-                  || (activityFilter === 'spray' && todaySpray.length === 0)
-                  || (activityFilter === 'seeding' && todaySeeding.length === 0)
-                  || (activityFilter === 'tillage' && todayTillage.length === 0)
-                  || (activityFilter === 'harvest' && todayHarvest.length === 0)) && (
-                  <p className="text-sm text-gray-400 py-2">No matching activity for this filter today.</p>
-                )}
-              </div>
-            )}
+            <div className="max-h-80 overflow-y-auto pr-1">
+              {!hasTodayActivity ? (
+                <p className="text-sm text-gray-400 py-2">No activity recorded today.</p>
+              ) : (
+                <div className="space-y-2">
+                  {(activityFilter === 'all' || activityFilter === 'scouting') && todayScouting.map(r => (
+                    <button key={r.id} onClick={() => setViewReport(r)} className="w-full flex items-center gap-2 text-sm bg-blue-50 rounded-lg p-2.5 text-left hover:bg-blue-100 transition-colors">
+                      <ClipboardList className="h-4 w-4 text-blue-600" />
+                      <span>Scouted <span className="font-medium">Field {r.fieldNumber}</span> — {r.cropType}</span>
+                    </button>
+                  ))}
+                  {(activityFilter === 'all' || activityFilter === 'spray') && todaySpray.map(a => (
+                    <button key={a.id} onClick={() => setViewSpray(a)} className={`w-full text-left flex items-center gap-2 text-sm rounded-lg p-2.5 transition-colors ${a.appliedDate === todayStr ? 'bg-green-50 hover:bg-green-100' : 'bg-purple-50 hover:bg-purple-100'}`}>
+                      <Syringe className={`h-4 w-4 ${a.appliedDate === todayStr ? 'text-green-600' : 'text-purple-600'}`} />
+                      <span>
+                        {a.appliedDate === todayStr ? 'Applied' : 'Planned'}: <span className="font-medium">{a.product}</span>
+                        {a.fieldNumbers.length > 0 && ` — Fields: ${a.fieldNumbers.join(', ')}`}
+                      </span>
+                    </button>
+                  ))}
+                  {(activityFilter === 'all' || activityFilter === 'seeding') && todaySeeding.map(e => (
+                    <button key={e.id} onClick={() => setViewSeeding(e)} className="w-full text-left flex items-center gap-2 text-sm bg-amber-50 rounded-lg p-2.5 hover:bg-amber-100 transition-colors">
+                      <CalendarDays className="h-4 w-4 text-amber-600" />
+                      <span>Seeded <span className="font-medium">Field {e.fieldNumber}</span> — {e.cropType}</span>
+                    </button>
+                  ))}
+                  {(activityFilter === 'all' || activityFilter === 'tillage') && todayTillage.map(r => (
+                    <button key={r.id} onClick={() => setViewTillage(r)} className="w-full text-left flex items-center gap-2 text-sm bg-green-50 rounded-lg p-2.5 hover:bg-green-100 transition-colors">
+                      <Wrench className="h-4 w-4 text-green-600" />
+                      <span>Tillage on <span className="font-medium">Field {r.fieldNumber}</span> — {r.method}</span>
+                    </button>
+                  ))}
+                  {(activityFilter === 'all' || activityFilter === 'harvest') && todayHarvest.map(r => (
+                    <Link key={r.id} to="/harvest" className="w-full text-left flex items-center gap-2 text-sm bg-orange-50 rounded-lg p-2.5 hover:bg-orange-100 transition-colors">
+                      <Wheat className="h-4 w-4 text-orange-600" />
+                      <span>Harvested <span className="font-medium">Field {r.fieldNumber}</span> — {r.cropType}</span>
+                    </Link>
+                  ))}
+                  {((activityFilter === 'scouting' && todayScouting.length === 0)
+                    || (activityFilter === 'spray' && todaySpray.length === 0)
+                    || (activityFilter === 'seeding' && todaySeeding.length === 0)
+                    || (activityFilter === 'tillage' && todayTillage.length === 0)
+                    || (activityFilter === 'harvest' && todayHarvest.length === 0)) && (
+                    <p className="text-sm text-gray-400 py-2">No matching activity for this filter today.</p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Weekly scouting summary */}
@@ -226,19 +235,27 @@ export default function Dashboard({ data }: Props) {
               <div className="space-y-3">
                 <div className="text-sm text-gray-600">
                   <span className="font-semibold text-green-800 text-lg">{filteredWeeklyReports.length}</span>{' '}
-                  {weeklyPriorityFilter === 'all' ? 'reports filed this week' : `${weeklyPriorityFilter} priority reports this week`}
+                  reports match current filters
                 </div>
 
                 {/* By crop */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="flex flex-wrap gap-2 text-xs sm:text-sm">
+                  <button
+                    onClick={() => setWeeklyCropFilter('all')}
+                    className={`px-2.5 py-1.5 rounded-full font-medium min-h-[34px] ${weeklyCropFilter === 'all' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}
+                  >
+                    All Crops ({priorityFilteredWeeklyReports.length})
+                  </button>
                   {Object.entries(weeklyByCrop).map(([crop, count]) => (
-                    <div key={crop} className="flex items-center gap-2 bg-gray-50 rounded-lg p-2">
-                      <span className="text-lg">{CROP_EMOJI[crop] ?? '🌿'}</span>
-                      <div>
-                        <div className="text-sm font-medium text-gray-700">{count}x</div>
-                        <div className="text-xs text-gray-500">{crop}</div>
-                      </div>
-                    </div>
+                    <button
+                      key={crop}
+                      onClick={() => setWeeklyCropFilter(crop)}
+                      className={`px-2.5 py-1.5 rounded-full font-medium min-h-[34px] flex items-center gap-1 ${weeklyCropFilter === crop ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}
+                    >
+                      <span>{CROP_EMOJI[crop] ?? '🌿'}</span>
+                      <span>{crop}</span>
+                      <span>({count})</span>
+                    </button>
                   ))}
                 </div>
 
@@ -266,8 +283,8 @@ export default function Dashboard({ data }: Props) {
                 </div>
 
                 {/* Recent reports */}
-                <div className="space-y-1">
-                  {filteredWeeklyReports.slice(0, 4).map(r => (
+                <div className="max-h-56 overflow-y-auto pr-1 space-y-1">
+                  {filteredWeeklyReports.map(r => (
                     <button key={r.id} onClick={() => setViewReport(r)} className="w-full flex items-center gap-2 text-sm text-gray-600 py-2 border-b border-gray-100 last:border-0 hover:bg-gray-50 rounded px-1 transition-colors text-left cursor-pointer">
                       <span className="text-base">{CROP_EMOJI[r.cropType] ?? '🌿'}</span>
                       <span className="font-medium">Field {r.fieldNumber}</span>
@@ -300,28 +317,29 @@ export default function Dashboard({ data }: Props) {
               <Syringe className="h-5 w-5" /> Upcoming Sprays
             </h2>
           </div>
-          {data.sprayApplications.filter(a => a.status === 'planned').length === 0 ? (
-            <p className="text-sm text-gray-400 py-2">No sprays planned.</p>
-          ) : (
-            <div className="space-y-2">
-              {data.sprayApplications
-                .filter(a => a.status === 'planned')
-                .sort((a, b) => a.plannedDate.localeCompare(b.plannedDate))
-                .slice(0, 4)
-                .map(a => (
-                  <button key={a.id} onClick={() => setViewSpray(a)} className={`w-full text-left flex items-center gap-3 text-sm rounded-lg p-2.5 transition-colors ${a.priority === 'high' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'}`}>
-                    <Syringe className={`h-4 w-4 shrink-0 ${a.priority === 'high' ? 'text-red-500' : 'text-purple-500'}`} />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{a.product}</div>
-                      <div className="text-xs text-gray-500">
-                        {a.plannedDate} · {a.fieldNumbers.length > 0 ? `Fields: ${a.fieldNumbers.join(', ')}` : 'All fields'}
+          <div className="max-h-72 overflow-y-auto pr-1">
+            {data.sprayApplications.filter(a => a.status === 'planned').length === 0 ? (
+              <p className="text-sm text-gray-400 py-2">No sprays planned.</p>
+            ) : (
+              <div className="space-y-2">
+                {data.sprayApplications
+                  .filter(a => a.status === 'planned')
+                  .sort((a, b) => a.plannedDate.localeCompare(b.plannedDate))
+                  .map(a => (
+                    <button key={a.id} onClick={() => setViewSpray(a)} className={`w-full text-left flex items-center gap-3 text-sm rounded-lg p-2.5 transition-colors ${a.priority === 'high' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'}`}>
+                      <Syringe className={`h-4 w-4 shrink-0 ${a.priority === 'high' ? 'text-red-500' : 'text-purple-500'}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{a.product}</div>
+                        <div className="text-xs text-gray-500">
+                          {a.plannedDate} · {a.fieldNumbers.length > 0 ? `Fields: ${a.fieldNumbers.join(', ')}` : 'All fields'}
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                ))
-              }
-            </div>
-          )}
+                    </button>
+                  ))
+                }
+              </div>
+            )}
+          </div>
           <Link to="/spray" className="mt-3 text-xs text-green-700 hover:text-green-900 flex items-center gap-1">
             Manage spray plan <ChevronRight className="h-3 w-3" />
           </Link>
@@ -334,25 +352,27 @@ export default function Dashboard({ data }: Props) {
               <Sprout className="h-5 w-5" /> Recent Potato Yields
             </h2>
           </div>
-          {latestYield.length === 0 ? (
-            <p className="text-sm text-gray-400 py-2">No yield reports yet.</p>
-          ) : (
-            <div className="space-y-2">
-              {latestYield.map(r => (
-                <button key={r.id} onClick={() => setViewYield(r)} className="w-full text-left flex items-center gap-3 bg-orange-50 rounded-lg p-2.5 text-sm hover:bg-orange-100 transition-colors">
-                  <span className="text-2xl">🥔</span>
-                  <div className="flex-1">
-                    <div className="font-medium">Field {r.fieldNumber}</div>
-                    <div className="text-xs text-gray-500">{r.date} · {r.potatoType}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold text-green-700">{r.estimatedYield.toFixed(1)}</div>
-                    <div className="text-xs text-gray-500">cwt/ac</div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="max-h-72 overflow-y-auto pr-1">
+            {latestYield.length === 0 ? (
+              <p className="text-sm text-gray-400 py-2">No yield reports yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {latestYield.map(r => (
+                  <button key={r.id} onClick={() => setViewYield(r)} className="w-full text-left flex items-center gap-3 bg-orange-50 rounded-lg p-2.5 text-sm hover:bg-orange-100 transition-colors">
+                    <span className="text-2xl">🥔</span>
+                    <div className="flex-1">
+                      <div className="font-medium">Field {r.fieldNumber}</div>
+                      <div className="text-xs text-gray-500">{r.date} · {r.potatoType}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-green-700">{r.estimatedYield.toFixed(1)}</div>
+                      <div className="text-xs text-gray-500">cwt/ac</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <Link to="/potato-yield" className="mt-3 text-xs text-green-700 hover:text-green-900 flex items-center gap-1">
             View all yield reports <ChevronRight className="h-3 w-3" />
           </Link>
