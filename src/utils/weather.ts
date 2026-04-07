@@ -3,7 +3,9 @@ import type { WeatherData } from '../types';
 // Using Open-Meteo API (free, no API key required)
 const FORECAST_URL = 'https://api.open-meteo.com/v1/forecast';
 const ARCHIVE_URL = 'https://archive-api.open-meteo.com/v1/archive';
-const MB_HOURLY_CSV_URL = 'https://mbagweather.ca/partners/agol/hourly-data.csv';
+const MB_HOURLY_CSV_URL = import.meta.env.DEV
+  ? '/api/mbagweather/partners/agol/hourly-data.csv'
+  : 'https://mbagweather.ca/partners/agol/hourly-data.csv';
 const WINKLER_STATION_ID = '230';
 
 const WMO_CODES: Record<number, string> = {
