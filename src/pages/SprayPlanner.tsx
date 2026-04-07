@@ -321,18 +321,23 @@ export default function SprayPlanner({ data, updateData }: Props) {
           </div>
         ) : filtered.map(app => {
           const displayChemicals = getDisplayChemicals(app);
+          const fieldCrops = Array.from(new Set(
+            data.fields
+              .filter(f => app.fieldIds.includes(f.id) || app.fieldNumbers.includes(f.fieldNumber))
+              .map(f => f.cropType)
+          ));
           return (
           <div key={app.id} className={`card hover:shadow-md transition-shadow ${app.priority === 'high' && app.status === 'planned' ? 'border-red-200 bg-red-50' : ''}`}>
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 mb-1">
                   <Syringe className="h-4 w-4 text-green-600" />
-                  <span className="font-semibold text-green-900">{displayChemicals.map(c => c.name).join(', ') || app.product}</span>
+                  <span className="font-semibold text-green-900">{app.fieldNumbers.length > 0 ? `Field ${app.fieldNumbers.join(', ')}` : 'All Fields'}</span>
                   <StatusBadge status={app.status} />
                   {app.priority === 'high' && <AlertTriangle className="h-4 w-4 text-red-500" />}
                 </div>
                 <div className="text-xs text-gray-500 space-x-3">
-                  <span>Fields: {app.fieldNumbers.length > 0 ? app.fieldNumbers.join(', ') : 'All'}</span>
+                  <span>Crop: {fieldCrops.length > 0 ? fieldCrops.join(', ') : 'N/A'}</span>
                   {app.status === 'applied' && app.appliedDate && <span>Applied: {app.appliedDate}</span>}
                 </div>
                 {displayChemicals.length > 0 ? (
