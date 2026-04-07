@@ -4,7 +4,7 @@ import { generateId, saveField, deleteField } from '../utils/storage';
 import type { AppData } from '../types';
 import {
   Plus, Pencil, Trash2, ChevronUp, ChevronDown,
-  AlertTriangle, CheckCircle, Minus, Search, X, FileSpreadsheet
+  AlertTriangle, CheckCircle, Minus, X, FileSpreadsheet
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { VARIETIES_BY_CROP } from '../utils/varieties';
@@ -46,36 +46,11 @@ export default function Fields({ data, updateData }: Props) {
   const [editing, setEditing] = useState<Field | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [form, setForm] = useState(emptyField());
-  const [search, setSearch] = useState('');
   const [filterCrop, setFilterCrop] = useState<CropType | ''>('');
-  const [filterPriority, setFilterPriority] = useState<Priority | ''>('');
   const [sortBy, setSortBy] = useState<'fieldNumber' | 'priority' | 'acres'>('fieldNumber');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-  const [quickFieldNum, setQuickFieldNum] = useState('');
-  const [quickCrop, setQuickCrop] = useState<CropType>('Corn');
-  const [quickAcres, setQuickAcres] = useState('');
   const excelRef = useRef<HTMLInputElement>(null);
   const varietyOptions = VARIETIES_BY_CROP[form.cropType] ?? [];
-
-  // Quick add
-  function handleQuickAdd() {
-    if (!quickFieldNum.trim()) return;
-    const now = new Date().toISOString();
-    const field: Field = {
-      id: generateId(),
-      fieldNumber: quickFieldNum.trim(),
-      cropType: quickCrop,
-      variety: '',
-      acres: parseFloat(quickAcres) || 0,
-      priority: 'medium',
-      notes: '',
-      createdAt: now,
-      updatedAt: now,
-    };
-    updateData(prev => saveField(prev, field));
-    setQuickFieldNum('');
-    setQuickAcres('');
-  }
 
   // Excel import
   function handleExcelImport(e: React.ChangeEvent<HTMLInputElement>) {
@@ -175,10 +150,7 @@ export default function Fields({ data, updateData }: Props) {
 
   const filtered = data.fields
     .filter(f => {
-      const q = search.toLowerCase();
-      if (q && !f.fieldNumber.toLowerCase().includes(q) && !f.variety.toLowerCase().includes(q)) return false;
       if (filterCrop && f.cropType !== filterCrop) return false;
-      if (filterPriority && f.priority !== filterPriority) return false;
       return true;
     })
     .sort((a, b) => {
@@ -190,6 +162,12 @@ export default function Fields({ data, updateData }: Props) {
     });
 
   const totalAcres = filtered.reduce((s, f) => s + f.acres, 0);
+  const cropAcres = CROPS.map(crop => ({
+    crop,
+    acres: data.fields
+      .filter(field => field.cropType === crop)
+      .reduce((sum, field) => sum + field.acres, 0),
+  }));
 
   function SortIcon({ col }: { col: typeof sortBy }) {
     if (sortBy !== col) return null;
@@ -217,73 +195,29 @@ export default function Fields({ data, updateData }: Props) {
 
       <input ref={excelRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleExcelImport} />
 
-      {/* Quick add bar */}
-      <div className="card">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3">Quick Add Field</h3>
-        <div className="flex flex-wrap gap-2 items-end">
-          <div>
-            <label className="form-label">Field #</label>
-            <input
-              className="form-input w-28"
-              placeholder="e.g. 01A"
-              value={quickFieldNum}
-              onChange={e => setQuickFieldNum(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleQuickAdd()}
-            />
-          </div>
-          <div>
-            <label className="form-label">Crop</label>
-            <select className="form-input w-36" value={quickCrop} onChange={e => setQuickCrop(e.target.value as CropType)}>
-              {CROPS.map(c => <option key={c}>{c}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="form-label">Acres</label>
-            <input
-              className="form-input w-24"
-              type="number"
-              placeholder="0"
-              value={quickAcres}
-              onChange={e => setQuickAcres(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleQuickAdd()}
-            />
-          </div>
-          <button onClick={handleQuickAdd} className="btn-primary h-9 self-end">
-            <Plus className="h-4 w-4" /> Add
-          </button>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="card">
-        <div className="flex flex-wrap gap-3 items-center">
-          <div className="relative flex-1 min-w-48">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-            <input
-              className="form-input pl-9"
-              placeholder="Search field # or variety..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
-          <select className="form-input w-36" value={filterCrop} onChange={e => setFilterCrop(e.target.value as CropType | '')}>
-            <option value="">All Crops</option>
-            {CROPS.map(c => <option key={c}>{c}</option>)}
-          </select>
-          {(search || filterCrop) && (
-            <button onClick={() => { setSearch(''); setFilterCrop(''); }} className="text-gray-400 hover:text-gray-600">
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      </div>
-
       {/* Summary */}
-      <div className="grid grid-cols-1 gap-3">
-        <div className="card text-center py-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        <button
+          type="button"
+          onClick={() => setFilterCrop('')}
+          className={`card text-center py-3 transition-colors ${filterCrop === '' ? 'ring-2 ring-green-400 bg-green-50' : 'hover:bg-gray-50'}`}
+          title="Show all crops"
+        >
           <div className="text-2xl font-bold text-green-800">{totalAcres.toFixed(1)}</div>
           <div className="text-xs text-gray-500">Total Filtered Acres</div>
-        </div>
+        </button>
+        {cropAcres.map(({ crop, acres }) => (
+          <button
+            key={crop}
+            type="button"
+            onClick={() => setFilterCrop(prev => (prev === crop ? '' : crop))}
+            className={`card text-center py-3 transition-colors ${filterCrop === crop ? 'ring-2 ring-green-400 bg-green-50' : 'hover:bg-gray-50'}`}
+            title={`Filter by ${crop}`}
+          >
+            <div className="text-xl font-bold text-green-800">{acres.toFixed(1)}</div>
+            <div className="text-xs text-gray-500">{crop} Acres</div>
+          </button>
+        ))}
       </div>
 
       {/* Table */}
