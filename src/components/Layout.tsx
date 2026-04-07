@@ -1,9 +1,10 @@
+import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
-  LayoutDashboard, Rows3, ClipboardList, Sprout, Syringe, CalendarDays, Leaf, Tractor, Wheat, FileText, Archive
+  LayoutDashboard, Rows3, ClipboardList, Sprout, Syringe, CalendarDays, Leaf, Tractor, Wheat, FileText, Archive, Menu, X
 } from 'lucide-react';
 import type { AppData } from '../types';
-import { exportAiDataJson, exportExcelData, exportFullDataJson } from '../utils/export';
+import { exportExcelData, exportFullDataJson } from '../utils/export';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -27,6 +28,10 @@ interface Props {
 }
 
 export default function Layout({ data, activeSeason, onSeasonChange, seasonOptions }: Props) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const closeMobileMenu = () => setMobileMenuOpen(false);
+
   return (
     <div className="flex flex-col min-h-screen bg-green-50">
       {/* Header */}
@@ -50,9 +55,6 @@ export default function Layout({ data, activeSeason, onSeasonChange, seasonOptio
                   <option key={year} value={year}>{year}</option>
                 ))}
               </select>
-              <button onClick={() => exportAiDataJson(data)} className="px-3 py-1.5 rounded-md bg-green-600 hover:bg-green-500 text-sm font-medium transition-colors">
-                Export AI JSON
-              </button>
               <button onClick={() => exportExcelData(data)} className="px-3 py-1.5 rounded-md bg-green-700 hover:bg-green-600 text-sm font-medium transition-colors">
                 Export Excel
               </button>
@@ -64,10 +66,10 @@ export default function Layout({ data, activeSeason, onSeasonChange, seasonOptio
         </div>
       </header>
 
-      {/* Nav */}
-      <nav className="bg-green-700 text-white shadow-md sticky top-14 z-40 overflow-x-auto">
+      {/* Nav - Desktop */}
+      <nav className="hidden md:block bg-green-700 text-white shadow-md sticky top-14 z-40">
         <div className="max-w-7xl mx-auto px-2">
-          <div className="flex">
+          <div className="flex overflow-x-auto">
             {navItems.map(({ to, label, icon: Icon, end }) => (
               <NavLink
                 key={to}
@@ -82,13 +84,49 @@ export default function Layout({ data, activeSeason, onSeasonChange, seasonOptio
                 }
               >
                 <Icon className="h-4 w-4" />
-                <span className="hidden sm:inline">{label}</span>
-                <span className="sm:hidden">{label.split(' ')[0]}</span>
+                <span>{label}</span>
               </NavLink>
             ))}
           </div>
         </div>
       </nav>
+
+      {/* Nav - Mobile Hamburger */}
+      <div className="md:hidden bg-green-700 text-white shadow-md sticky top-14 z-40">
+        <div className="flex items-center px-4 py-3">
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-green-600 transition-colors"
+            aria-label="Toggle navigation menu"
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            <span className="text-sm font-medium">Menu</span>
+          </button>
+        </div>
+
+        {mobileMenuOpen && (
+          <div className="border-t border-green-600 bg-green-700 max-h-96 overflow-y-auto">
+            {navItems.map(({ to, label, icon: Icon, end }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={end}
+                onClick={closeMobileMenu}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors border-l-4 ${
+                    isActive
+                      ? 'border-green-300 text-white bg-green-600'
+                      : 'border-transparent text-green-200 hover:text-white hover:bg-green-600'
+                  }`
+                }
+              >
+                <Icon className="h-4 w-4" />
+                <span>{label}</span>
+              </NavLink>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Main content */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-3 sm:px-4 py-4 sm:py-6">
