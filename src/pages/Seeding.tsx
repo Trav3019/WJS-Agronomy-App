@@ -26,6 +26,7 @@ const emptyEntry = (): Omit<SeedingEntry, 'id' | 'createdAt'> => ({
   groundTemperature: undefined,
   seedCutDate: '',
   seedingRate: 0,
+  seedingRateCwtAc: undefined,
   rowSpacing: undefined,
   seedDepth: undefined,
   location: { lat: 0, lng: 0 },
@@ -173,6 +174,7 @@ export default function Seeding({ data, updateData }: Props) {
       groundTemperature: entry.groundTemperature,
       seedCutDate: entry.seedCutDate ?? '',
       seedingRate: entry.seedingRate,
+      seedingRateCwtAc: entry.seedingRateCwtAc,
       rowSpacing: entry.rowSpacing,
       seedDepth: entry.seedDepth,
       location: entry.location,
@@ -204,6 +206,7 @@ export default function Seeding({ data, updateData }: Props) {
       tuberSize: nextCropType === 'Potatoes' ? f.tuberSize : '',
       tuberTemp: nextCropType === 'Potatoes' ? f.tuberTemp : undefined,
       groundTemperature: nextCropType === 'Potatoes' ? f.groundTemperature : undefined,
+      seedingRateCwtAc: nextCropType === 'Potatoes' ? f.seedingRateCwtAc : undefined,
       seedCutDate: nextCropType === 'Potatoes' ? f.seedCutDate : '',
     }));
   }
@@ -298,7 +301,7 @@ export default function Seeding({ data, updateData }: Props) {
                 </div>
                 <div className="text-xs text-gray-500 space-x-3">
                   <span>Seeded: {entry.seedingDate}</span>
-                  {entry.seedingRate > 0 && <span>Rate: {entry.seedingRate.toLocaleString()} seeds/ac</span>}
+                  {entry.cropType !== 'Potatoes' && entry.seedingRate > 0 && <span>Rate: {entry.seedingRate.toLocaleString()} seeds/ac</span>}
                   {entry.rowSpacing && <span>Row: {entry.rowSpacing}"</span>}
                 </div>
                 {entry.fieldTrials && (
@@ -312,6 +315,7 @@ export default function Seeding({ data, updateData }: Props) {
                     {entry.tuberTemp !== undefined && <span>Tuber Temp: {entry.tuberTemp} C</span>}
                     {entry.groundTemperature !== undefined && <span>Ground Temp: {entry.groundTemperature} C</span>}
                     {entry.seedCutDate && <span>Seed Cut Date: {entry.seedCutDate}</span>}
+                    {entry.seedingRateCwtAc !== undefined && <span>Seeding Rate: {entry.seedingRateCwtAc.toFixed(1)} CWT/ac</span>}
                   </div>
                 )}
                 {entry.weather && (
@@ -373,6 +377,7 @@ export default function Seeding({ data, updateData }: Props) {
                         cropType: nextCrop,
                         tuberSize: nextCrop === 'Potatoes' ? f.tuberSize : '',
                         tuberTemp: nextCrop === 'Potatoes' ? f.tuberTemp : undefined,
+                        seedingRateCwtAc: nextCrop === 'Potatoes' ? f.seedingRateCwtAc : undefined,
                         groundTemperature: nextCrop === 'Potatoes' ? f.groundTemperature : undefined,
                         seedCutDate: nextCrop === 'Potatoes' ? f.seedCutDate : '',
                       }));
@@ -397,10 +402,12 @@ export default function Seeding({ data, updateData }: Props) {
                     onChange={e => setForm(f => ({ ...f, seedingDate: e.target.value, weather: undefined }))}
                   />
                 </div>
-                <div>
-                  <label className="form-label">Seeding Rate (seeds/ac)</label>
-                  <input type="number" className="form-input" value={form.seedingRate || ''} onChange={e => setForm(f => ({ ...f, seedingRate: parseInt(e.target.value) || 0 }))} />
-                </div>
+                {form.cropType !== 'Potatoes' && (
+                  <div>
+                    <label className="form-label">Seeding Rate (seeds/ac)</label>
+                    <input type="number" className="form-input" value={form.seedingRate || ''} onChange={e => setForm(f => ({ ...f, seedingRate: parseInt(e.target.value) || 0 }))} />
+                  </div>
+                )}
                 <div>
                   <label className="form-label">Row Spacing (inches)</label>
                   <input type="number" className="form-input" value={form.rowSpacing ?? ''} onChange={e => setForm(f => ({ ...f, rowSpacing: parseFloat(e.target.value) || undefined }))} />
@@ -447,6 +454,16 @@ export default function Seeding({ data, updateData }: Props) {
                         className="form-input"
                         value={form.seedCutDate ?? ''}
                         onChange={e => setForm(f => ({ ...f, seedCutDate: e.target.value }))}
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label">Seeding Rate (CWT/ac)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        className="form-input"
+                        value={form.seedingRateCwtAc ?? ''}
+                        onChange={e => setForm(f => ({ ...f, seedingRateCwtAc: parseFloat(e.target.value) || undefined }))}
                       />
                     </div>
                   </>
