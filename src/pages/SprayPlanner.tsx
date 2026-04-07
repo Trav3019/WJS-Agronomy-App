@@ -9,6 +9,7 @@ interface Props {
 }
 
 const METHODS = ['Ground Sprayer', 'Air (Aircraft)', 'High-Clearance Sprayer', 'Backpack Sprayer', 'Drone'];
+const RATE_UNITS = ['L', 'mL', 'kg', 'g', 'lb', 'oz', 'gal', 'pt', 'qt'];
 const CROPS: CropType[] = ['Corn', 'Canola', 'Soybeans', 'Wheat', 'Edible Beans', 'Oats', 'Potatoes'];
 const PRODUCT_OPTIONS = [
   'LI 700',
@@ -141,8 +142,8 @@ export default function SprayPlanner({ data, updateData }: Props) {
       product: app.product,
       products: app.products ?? [],
       chemicals: app.chemicals ?? (
-        app.products?.map(p => ({ name: p, rate: app.rate ?? '' })) ??
-        (app.product ? app.product.split(',').map(p => ({ name: p.trim(), rate: app.rate ?? '' })) : [])
+        app.products?.map(p => ({ name: p, rate: app.rate ?? '', rateUnit: 'L' })) ??
+        (app.product ? app.product.split(',').map(p => ({ name: p.trim(), rate: app.rate ?? '', rateUnit: 'L' })) : [])
       ),
       activeIngredient: app.activeIngredient ?? '',
       rate: app.rate,
@@ -231,6 +232,9 @@ export default function SprayPlanner({ data, updateData }: Props) {
   const availableFields = data.fields
     .filter(field => !cropFilter || field.cropType === cropFilter)
     .sort((a, b) => a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' }));
+
+  const formatChemicalRate = (chem: { rate?: string; rateUnit?: string }) =>
+    chem.rate ? `${chem.rate} ${chem.rateUnit || 'L'}` : '';
 
   return (
     <div className="space-y-5">
@@ -332,7 +336,7 @@ export default function SprayPlanner({ data, updateData }: Props) {
                 </div>
                 <div className="text-sm text-gray-600 mt-1">
                   {(app.chemicals?.length ?? 0) > 0
-                    ? app.chemicals!.map(c => c.name + (c.rate ? ' — ' + c.rate + 'L' : '')).join(' | ') + ' | ' + app.applicationMethod
+                    ? app.chemicals!.map(c => c.name + (c.rate ? ` — ${formatChemicalRate(c)}` : '')).join(' | ') + ' | ' + app.applicationMethod
                     : app.applicationMethod}
                 </div>
               </div>
@@ -452,9 +456,9 @@ export default function SprayPlanner({ data, updateData }: Props) {
                         }))}
                         placeholder="Chemical name"
                       />
-                      <div className="relative w-36">
+                      <div className="w-44 flex gap-2">
                         <input
-                          className="form-input pr-7"
+                          className="form-input"
                           value={chem.rate}
                           onChange={e => setForm(f => ({
                             ...f,
@@ -462,7 +466,16 @@ export default function SprayPlanner({ data, updateData }: Props) {
                           }))}
                           placeholder="Rate"
                         />
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">L</span>
+                        <select
+                          className="form-input w-20"
+                          value={chem.rateUnit ?? 'L'}
+                          onChange={e => setForm(f => ({
+                            ...f,
+                            chemicals: (f.chemicals ?? []).map((c, i) => i === idx ? { ...c, rateUnit: e.target.value } : c),
+                          }))}
+                        >
+                          {RATE_UNITS.map(unit => <option key={unit} value={unit}>{unit}</option>)}
+                        </select>
                       </div>
                       <button type="button" onClick={() => setForm(f => ({ ...f, chemicals: (f.chemicals ?? []).filter((_, i) => i !== idx) }))} className="text-red-500 hover:bg-red-50 p-1.5 rounded">
                         <X className="h-4 w-4" />
@@ -472,12 +485,12 @@ export default function SprayPlanner({ data, updateData }: Props) {
                   <div className="flex gap-2">
                     <select className="form-input flex-1" value="" onChange={e => {
                       if (!e.target.value) return;
-                      setForm(f => ({ ...f, chemicals: [...(f.chemicals ?? []), { name: e.target.value, rate: '' }] }));
+                      setForm(f => ({ ...f, chemicals: [...(f.chemicals ?? []), { name: e.target.value, rate: '', rateUnit: 'L' }] }));
                     }}>
                       <option value="">Add from catalog</option>
                       {PRODUCT_OPTIONS.map(p => <option key={p} value={p}>{p}</option>)}
                     </select>
-                    <button type="button" className="btn-secondary text-xs px-3 whitespace-nowrap" onClick={() => setForm(f => ({ ...f, chemicals: [...(f.chemicals ?? []), { name: '', rate: '' }] }))}>
+                    <button type="button" className="btn-secondary text-xs px-3 whitespace-nowrap" onClick={() => setForm(f => ({ ...f, chemicals: [...(f.chemicals ?? []), { name: '', rate: '', rateUnit: 'L' }] }))}>
                       + Custom
                     </button>
                   </div>
@@ -547,7 +560,7 @@ export default function SprayPlanner({ data, updateData }: Props) {
                     {viewApp.chemicals!.map((c, i) => (
                       <div key={i} className="flex justify-between bg-gray-50 rounded px-3 py-1.5">
                         <span className="font-medium">{c.name}</span>
-                        {c.rate && <span className="text-gray-600">{c.rate} L</span>}
+                        {c.rate && <span className="text-gray-600">{formatChemicalRate(c)}</span>}
                       </div>
                     ))}
                   </div>
