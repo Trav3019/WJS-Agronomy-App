@@ -56,19 +56,19 @@ export default function SoilTemperatureWidget() {
       ) : (
         <div className="grid grid-cols-2 gap-2">
           <div className="rounded-lg bg-green-50 p-3 text-center">
-            <div className="text-xs text-green-700">5 cm</div>
+            <div className="text-xs text-green-700">2"</div>
             <div className="text-2xl font-semibold text-green-900">{soil.temp0cm.toFixed(0)} C</div>
           </div>
           <div className="rounded-lg bg-green-50 p-3 text-center">
-            <div className="text-xs text-green-700">20 cm</div>
+            <div className="text-xs text-green-700">8"</div>
             <div className="text-2xl font-semibold text-green-900">{soil.temp6cm.toFixed(0)} C</div>
           </div>
           <div className="rounded-lg bg-green-50 p-3 text-center">
-            <div className="text-xs text-green-700">50 cm</div>
+            <div className="text-xs text-green-700">20"</div>
             <div className="text-2xl font-semibold text-green-900">{soil.temp18cm.toFixed(0)} C</div>
           </div>
           <div className="rounded-lg bg-green-50 p-3 text-center">
-            <div className="text-xs text-green-700">100 cm</div>
+            <div className="text-xs text-green-700">39"</div>
             <div className="text-2xl font-semibold text-green-900">{soil.temp54cm.toFixed(0)} C</div>
           </div>
         </div>
