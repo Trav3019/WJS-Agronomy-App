@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { AppData, HarvestReport, WeatherData } from '../types';
+import type { AppData, HarvestReport, WeatherData, CropType } from '../types';
 import { generateId, saveHarvestReport, deleteHarvestReport } from '../utils/storage';
 import { getHistoricalWeather } from '../utils/weather';
 import { VARIETIES_BY_CROP } from '../utils/varieties';
@@ -20,8 +20,10 @@ export default function Harvest({ data, updateData }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [viewReport, setViewReport] = useState<HarvestReport | null>(null);
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
+  const [photoGallery, setPhotoGallery] = useState<string[] | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [fieldFilter, setFieldFilter] = useState('');
+  const [cropFilter, setCropFilter] = useState<CropType | ''>('');
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState<string | null>(null);
   const [weatherSnapshot, setWeatherSnapshot] = useState<WeatherData | null>(null);
@@ -29,6 +31,14 @@ export default function Harvest({ data, updateData }: Props) {
   const orderedFields = [...data.fields].sort((a, b) =>
     a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' })
   );
+  const cropOptions = Array.from(new Set(data.harvestReports.map(r => r.cropType))).sort((a, b) => a.localeCompare(b));
+  const fieldOptions = Array.from(
+    new Set(
+      data.harvestReports
+        .filter(r => !cropFilter || r.cropType === cropFilter)
+        .map(r => r.fieldNumber)
+    )
+  ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
   const [form, setForm] = useState({
     fieldId: '',
     variety: '',
@@ -126,7 +136,8 @@ export default function Harvest({ data, updateData }: Props) {
   }
 
   const reports = data.harvestReports
-    .filter(r => !fieldFilter || r.fieldNumber.toLowerCase().includes(fieldFilter.toLowerCase()))
+    .filter(r => !cropFilter || r.cropType === cropFilter)
+    .filter(r => !fieldFilter || r.fieldNumber === fieldFilter)
     .sort((a, b) => b.date.localeCompare(a.date));
   const selectedFieldForForm = data.fields.find(f => f.id === form.fieldId);
   const varietyOptions = selectedFieldForForm ? (VARIETIES_BY_CROP[selectedFieldForForm.cropType] ?? []) : [];
@@ -142,6 +153,12 @@ export default function Harvest({ data, updateData }: Props) {
         .sort((a, b) => b.date.localeCompare(a.date))[0]?.location
     : undefined;
   const weatherLocation = selectedFieldForForm?.location ?? fallbackSeedingLocation ?? fallbackScoutingLocation;
+
+  useEffect(() => {
+    if (fieldFilter && !fieldOptions.includes(fieldFilter)) {
+      setFieldFilter('');
+    }
+  }, [cropFilter, fieldFilter, fieldOptions]);
 
   function refreshWeather() {
     setWeatherRefreshKey(prev => prev + 1);
@@ -207,21 +224,31 @@ export default function Harvest({ data, updateData }: Props) {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-green-900">Harvest</h1>
-        <p className="text-sm text-gray-500 mt-1">Track harvest outcomes by field and date.</p>
-      </div>
-
-      <div className="flex items-center justify-between gap-3">
-        <input
-          className="form-input max-w-xs"
-          placeholder="Filter by field #..."
-          value={fieldFilter}
-          onChange={e => setFieldFilter(e.target.value)}
-        />
-        <button onClick={openNew} className="btn-primary">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-green-900">Harvest</h1>
+          <p className="text-sm text-gray-500 mt-1">Track harvest outcomes by field and date.</p>
+        </div>
+        <button onClick={openNew} className="btn-primary whitespace-nowrap">
           <Plus className="h-4 w-4" /> New Report
         </button>
+      </div>
+
+      <div className="flex items-end gap-3 flex-wrap">
+        <div className="grid grid-cols-2 gap-2 w-full sm:w-auto">
+          <select className="form-input w-full sm:w-40" value={cropFilter} onChange={e => setCropFilter(e.target.value as CropType | '')}>
+            <option value="">All Crops</option>
+            {cropOptions.map(crop => (
+              <option key={crop} value={crop}>{crop}</option>
+            ))}
+          </select>
+          <select className="form-input w-full sm:w-40" value={fieldFilter} onChange={e => setFieldFilter(e.target.value)}>
+            <option value="">All Fields</option>
+            {fieldOptions.map(fieldNumber => (
+              <option key={fieldNumber} value={fieldNumber}>Field {fieldNumber}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -243,6 +270,15 @@ export default function Harvest({ data, updateData }: Props) {
                     {r.notes && <div className="text-sm text-gray-600 mt-1 truncate">{r.notes}</div>}
                   </div>
                   <div className="flex gap-2 shrink-0">
+                    {(r.photos?.length ?? 0) > 0 && (
+                      <button
+                        onClick={() => setPhotoGallery(r.photos ?? null)}
+                        className="btn-secondary text-[11px] py-1 px-2"
+                        title="Open attached photos"
+                      >
+                        <Camera className="h-3 w-3" /> {r.photos?.length}
+                      </button>
+                    )}
                     <button onClick={() => setViewReport(r)} className="btn-secondary text-xs py-1.5 px-2.5">
                       <Eye className="h-3.5 w-3.5" /> View
                     </button>
@@ -439,6 +475,26 @@ export default function Harvest({ data, updateData }: Props) {
                 <Trash2 className="h-4 w-4" /> Delete
               </button>
               <button onClick={() => { openEdit(viewReport); setViewReport(null); }} className="btn-primary">Edit</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {photoGallery && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[9998] p-4" onClick={() => setPhotoGallery(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b">
+              <h3 className="text-base font-semibold">Photos ({photoGallery.length})</h3>
+              <button onClick={() => setPhotoGallery(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {photoGallery.map((photo, idx) => (
+                <button key={`gallery-photo-${idx}`} type="button" className="focus:outline-none" onClick={() => setPreviewPhoto(photo)}>
+                  <img src={photo} alt={`Harvest photo ${idx + 1}`} className="w-full h-32 rounded object-cover border border-gray-200 hover:opacity-90" />
+                </button>
+              ))}
             </div>
           </div>
         </div>
