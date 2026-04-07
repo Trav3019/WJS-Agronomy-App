@@ -94,12 +94,65 @@ export default function Dashboard({ data }: Props) {
     })
     .sort((a, b) => b.date.localeCompare(a.date));
 
+  const getDisplayChemicals = (app: SprayApplication) => {
+    if ((app.chemicals?.length ?? 0) > 0) return app.chemicals ?? [];
+
+    const legacyProducts = (app.products?.length ?? 0) > 0
+      ? app.products!
+      : (app.product || '').split(',').map(p => p.trim()).filter(Boolean);
+
+    const rateText = app.rate?.trim() || '';
+    if (!rateText) {
+      return legacyProducts.map(name => ({ name, rate: '', rateUnit: undefined }));
+    }
+
+    // Legacy rates were sometimes saved as "Prod A: 1 L, Prod B: 2 L".
+    const hasNamedRates = rateText.includes(':');
+    if (!hasNamedRates) {
+      return legacyProducts.map(name => ({ name, rate: rateText, rateUnit: undefined }));
+    }
+
+    const namedRates = new Map(
+      rateText
+        .split(',')
+        .map(part => part.trim())
+        .filter(Boolean)
+        .map(part => {
+          const [name, ...rest] = part.split(':');
+          return [name.trim().toLowerCase(), rest.join(':').trim()];
+        })
+    );
+
+    return legacyProducts.map(name => ({
+      name,
+      rate: namedRates.get(name.toLowerCase()) || '',
+      rateUnit: undefined,
+    }));
+  };
+
+  const formatSpraySummary = (app: SprayApplication) => {
+    const chemicals = getDisplayChemicals(app);
+    if (chemicals.length === 0) return app.product || 'No products listed';
+
+    const formatRateWithUnit = (rate?: string, rateUnit?: string) => {
+      if (!rate) return 'n/a';
+      if (rateUnit) return `${rate} ${rateUnit}`;
+
+      // Legacy rates can already contain units.
+      return /[a-zA-Z]/.test(rate) ? rate : `${rate} L`;
+    };
+
+    return chemicals
+      .map(c => `${c.name} - ${formatRateWithUnit(c.rate, c.rateUnit)}`)
+      .join(', ');
+  };
+
   return (
     <>
     <div className="space-y-4 sm:space-y-6">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-green-900">
-          Good {getGreeting()}, Welcome to WJS Agronomy
+          Good {getGreeting()}, Welcome to WJ Farm Management
         </h1>
         <p className="text-gray-500 text-xs sm:text-sm mt-1">{format(today, 'EEEE, MMMM d, yyyy')}</p>
       </div>
@@ -192,7 +245,7 @@ export default function Dashboard({ data }: Props) {
                     <button key={a.id} onClick={() => setViewSpray(a)} className={`w-full text-left flex items-center gap-2 text-sm rounded-lg p-2.5 transition-colors ${a.appliedDate === todayStr ? 'bg-green-50 hover:bg-green-100' : 'bg-purple-50 hover:bg-purple-100'}`}>
                       <Syringe className={`h-4 w-4 ${a.appliedDate === todayStr ? 'text-green-600' : 'text-purple-600'}`} />
                       <span>
-                        {a.appliedDate === todayStr ? 'Applied' : 'Planned'}: <span className="font-medium">{a.product}</span>
+                        {a.appliedDate === todayStr ? 'Applied' : 'Planned'}: <span className="font-medium">{formatSpraySummary(a)}</span>
                         {a.fieldNumbers.length > 0 && ` — Fields: ${a.fieldNumbers.join(', ')}`}
                       </span>
                     </button>
@@ -336,7 +389,7 @@ export default function Dashboard({ data }: Props) {
                     <button key={a.id} onClick={() => setViewSpray(a)} className={`w-full text-left flex items-center gap-3 text-sm rounded-lg p-2.5 transition-colors ${a.priority === 'high' ? 'bg-red-50 hover:bg-red-100' : 'bg-gray-50 hover:bg-gray-100'}`}>
                       <Syringe className={`h-4 w-4 shrink-0 ${a.priority === 'high' ? 'text-red-500' : 'text-purple-500'}`} />
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{a.product}</div>
+                        <div className="font-medium truncate">{formatSpraySummary(a)}</div>
                         <div className="text-xs text-gray-500">
                           {a.plannedDate} · {a.fieldNumbers.length > 0 ? `Fields: ${a.fieldNumbers.join(', ')}` : 'All fields'}
                         </div>
@@ -552,7 +605,7 @@ export default function Dashboard({ data }: Props) {
                     </table>
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{viewSpray.product || 'No chemical list recorded.'}</p>
+                  <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{formatSpraySummary(viewSpray)}</p>
                 )}
               </div>
 
@@ -774,3 +827,4 @@ function getGreeting(): string {
   if (h < 17) return 'afternoon';
   return 'evening';
 }
+
