@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Cloud, Droplets, Wind, Thermometer, Loader2, AlertTriangle, CloudRain } from 'lucide-react';
-import { getCurrentWeather, getWeeklyRainfall, getWeeklyForecast } from '../utils/weather';
+import { Cloud, Droplets, Wind, Thermometer, Loader2, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { getCurrentWeather, getWeeklyForecast } from '../utils/weather';
 import type { WeatherData } from '../types';
 
 interface ForecastDay {
@@ -35,25 +35,20 @@ export default function WeatherWidget() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [forecast, setForecast] = useState<ForecastDay[]>([]);
   const [selectedForecastIndex, setSelectedForecastIndex] = useState(0);
-  const [weekRain, setWeekRain] = useState<number | null>(null);
+  const [showForecast, setShowForecast] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadWeather = async (lat: number, lng: number, usingFallback = false) => {
       try {
-        const [weatherResult, rainfallResult, forecastResult] = await Promise.allSettled([
+        const [weatherResult, forecastResult] = await Promise.allSettled([
           getCurrentWeather(lat, lng),
-          getWeeklyRainfall(lat, lng),
           getWeeklyForecast(lat, lng),
         ]);
 
         if (weatherResult.status === 'fulfilled') {
           setWeather(weatherResult.value);
-        }
-
-        if (rainfallResult.status === 'fulfilled') {
-          setWeekRain(rainfallResult.value);
         }
 
         if (forecastResult.status === 'fulfilled') {
@@ -161,19 +156,22 @@ export default function WeatherWidget() {
         </div>
       </div>
 
-      {/* Weekly rainfall */}
-      {weekRain !== null && (
-        <div className="flex items-center gap-2 bg-blue-50 rounded-lg p-3">
-          <CloudRain className="h-5 w-5 text-blue-600" />
+      {forecast.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowForecast(current => !current)}
+          className="flex w-full items-center justify-between rounded-lg bg-blue-50 p-3 text-left text-blue-800 transition-colors hover:bg-blue-100"
+        >
           <div>
-            <div className="text-sm font-semibold text-blue-800">7-Day Rainfall Total</div>
-            <div className="text-xl font-bold text-blue-700">{weekRain.toFixed(1)} mm</div>
+            <div className="text-sm font-semibold">7-Day Forecast</div>
+            <div className="text-xs text-blue-700">Tap to {showForecast ? 'hide' : 'view'} the weekly outlook</div>
           </div>
-        </div>
+          {showForecast ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+        </button>
       )}
 
       {/* 7-day forecast */}
-      {forecast.length > 0 && (
+      {showForecast && forecast.length > 0 && (
         <div>
           <h3 className="text-sm font-semibold text-gray-600 mb-2">7-Day Forecast</h3>
           <div className="grid grid-cols-7 gap-1">
