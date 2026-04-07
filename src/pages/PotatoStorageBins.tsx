@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Image, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { AppData } from '../types';
 
 interface Props {
@@ -26,6 +26,7 @@ export default function PotatoStorageBins({ data, updateData }: Props) {
   const [newBinName, setNewBinName] = useState('');
   const [newBinCapacity, setNewBinCapacity] = useState('');
   const [addBinError, setAddBinError] = useState('');
+  const [photoViewer, setPhotoViewer] = useState<{ photos: string[]; index: number } | null>(null);
 
   const customBins: string[] = data.customBins ?? [];
   const customBinCapacities: Record<string, number> = data.customBinCapacities ?? {};
@@ -72,6 +73,7 @@ export default function PotatoStorageBins({ data, updateData }: Props) {
       quality?: string;
       tuberTemp?: number;
       tuberDefects?: string[];
+      photos?: string[];
     }>>();
 
     data.harvestReports
@@ -95,6 +97,7 @@ export default function PotatoStorageBins({ data, updateData }: Props) {
           quality: r.quality,
           tuberTemp: r.tuberTemp,
           tuberDefects: r.tuberDefects,
+          photos: r.photos,
         });
         byBin.set(bin, arr);
       });
@@ -229,6 +232,19 @@ export default function PotatoStorageBins({ data, updateData }: Props) {
                           <div className="text-xs text-gray-600 mt-1">
                             Quality: {load.quality ?? '-'} · Temp: {load.tuberTemp !== undefined ? `${load.tuberTemp} C` : '-'}
                           </div>
+                          {load.photos?.length ? (
+                            <div className="mt-1">
+                              <button
+                                type="button"
+                                onClick={() => setPhotoViewer({ photos: load.photos ?? [], index: 0 })}
+                                className="inline-flex items-center gap-1 text-xs text-blue-700 hover:text-blue-900"
+                                title="View crop photos"
+                              >
+                                <Image className="w-3.5 h-3.5" />
+                                View Photos ({load.photos.length})
+                              </button>
+                            </div>
+                          ) : null}
                           {load.tuberDefects?.length ? (
                             <div className="text-xs text-gray-600 mt-1">
                               Defects: {load.tuberDefects.join(', ')}
@@ -244,6 +260,48 @@ export default function PotatoStorageBins({ data, updateData }: Props) {
           );
         })}
       </div>
+
+      {photoViewer && (
+        <div className="fixed inset-0 z-50 bg-black/80 p-4 flex items-center justify-center" onClick={() => setPhotoViewer(null)}>
+          <div className="relative w-full max-w-4xl" onClick={e => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setPhotoViewer(null)}
+              className="absolute -top-3 -right-3 bg-white text-gray-700 rounded-full p-1.5 hover:bg-gray-100"
+              aria-label="Close photo viewer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <img
+              src={photoViewer.photos[photoViewer.index]}
+              alt={`Bin crop photo ${photoViewer.index + 1}`}
+              className="w-full max-h-[80vh] object-contain rounded-lg bg-black"
+            />
+
+            {photoViewer.photos.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setPhotoViewer(prev => prev ? { ...prev, index: (prev.index - 1 + prev.photos.length) % prev.photos.length } : null)}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 text-gray-800 rounded-full p-2 hover:bg-white"
+                  aria-label="Previous photo"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPhotoViewer(prev => prev ? { ...prev, index: (prev.index + 1) % prev.photos.length } : null)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 text-gray-800 rounded-full p-2 hover:bg-white"
+                  aria-label="Next photo"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
