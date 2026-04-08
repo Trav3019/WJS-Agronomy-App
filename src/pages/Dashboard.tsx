@@ -41,6 +41,7 @@ export default function Dashboard({ data }: Props) {
   const [viewSeeding, setViewSeeding] = useState<SeedingEntry | null>(null);
   const [viewYield, setViewYield] = useState<PotatoYieldReport | null>(null);
   const [viewTillage, setViewTillage] = useState<TillageReport | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
   const weekAgo = subDays(today, 6);
@@ -422,7 +423,11 @@ export default function Dashboard({ data }: Props) {
             ) : (
               <div className="space-y-2">
                 {latestYield.map(r => (
-                  <button key={r.id} onClick={() => setViewYield(r)} className="w-full text-left flex items-center gap-3 bg-orange-50 rounded-lg p-2.5 text-sm hover:bg-orange-100 transition-colors">
+                  <button
+                    key={r.id}
+                    onClick={() => setViewYield(r)}
+                    className="w-full text-left flex items-center gap-3 bg-orange-50 rounded-lg p-2.5 text-sm hover:bg-orange-100 transition-colors"
+                  >
                     <span className="text-2xl">🥔</span>
                     <div className="flex-1">
                       <div className="font-medium">Field {r.fieldNumber}</div>
@@ -768,9 +773,16 @@ export default function Dashboard({ data }: Props) {
               {(viewYield.photos?.length ?? 0) > 0 && (
                 <div>
                   <h3 className="text-sm font-semibold text-gray-700 mb-2">Photos ({viewYield.photos?.length ?? 0})</h3>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="mt-2 flex flex-wrap gap-2">
                     {(viewYield.photos ?? []).map((photo, i) => (
-                      <img key={`${viewYield.id}-photo-${i}`} src={photo} alt={`Yield report photo ${i + 1}`} className="photo-thumbnail" />
+                      <button
+                        key={`${viewYield.id}-photo-${i}`}
+                        type="button"
+                        onClick={() => setSelectedPhoto(photo)}
+                        className="rounded-md focus:outline-none focus:ring-2 focus:ring-green-400"
+                      >
+                        <img src={photo} alt={`Yield report photo ${i + 1}`} className="photo-thumbnail cursor-zoom-in" />
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -819,6 +831,28 @@ export default function Dashboard({ data }: Props) {
               </Link>
             </div>
           </div>
+        </div>
+      )}
+
+      {selectedPhoto && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[9999] p-4"
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <button
+            type="button"
+            className="absolute top-4 right-4 text-white bg-black bg-opacity-40 hover:bg-opacity-60 rounded-full p-2"
+            onClick={() => setSelectedPhoto(null)}
+            aria-label="Close photo preview"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <img
+            src={selectedPhoto}
+            alt="Expanded yield photo"
+            className="max-w-full max-h-[90vh] object-contain rounded-lg"
+            onClick={e => e.stopPropagation()}
+          />
         </div>
       )}
     </>
