@@ -1,4 +1,4 @@
-import type { AppData, Field, ScoutingReport, PotatoYieldReport, SprayApplication, SeedingEntry, SeedingPlan, TillageReport, HarvestReport, PotatoStorageBin } from '../types';
+import type { AppData, Field, PlanterCheck, ScoutingReport, PotatoYieldReport, SprayApplication, SeedingEntry, SeedingPlan, TillageReport, HarvestReport, PotatoStorageBin } from '../types';
 
 const LEGACY_STORAGE_KEY = 'wjs-agronomy-data';
 const STORAGE_KEY_PREFIX = 'wjs-agronomy-data-season-';
@@ -11,6 +11,7 @@ const defaultData: AppData = {
   sprayApplications: [],
   seedingEntries: [],
   seedingPlans: [],
+  planterChecks: [],
   tillageReports: [],
   harvestReports: [],
   potatoStorageBins: [],
@@ -150,6 +151,7 @@ export function deleteField(data: AppData, id: string): AppData {
     potatoYieldReports: data.potatoYieldReports.filter(r => r.fieldId !== id && r.fieldNumber !== field.fieldNumber),
     seedingEntries: data.seedingEntries.filter(e => e.fieldId !== id && e.fieldNumber !== field.fieldNumber),
     seedingPlans: data.seedingPlans.filter(p => p.fieldId !== id && p.fieldNumber !== field.fieldNumber),
+    planterChecks: data.planterChecks.filter(check => check.fieldId !== id && check.fieldNumber !== field.fieldNumber),
     tillageReports: data.tillageReports.filter(r => r.fieldId !== id && r.fieldNumber !== field.fieldNumber),
     harvestReports: data.harvestReports.filter(r => r.fieldId !== id && r.fieldNumber !== field.fieldNumber),
     potatoStorageBins: data.potatoStorageBins.filter(b => b.fieldNumber !== field.fieldNumber),
@@ -220,6 +222,19 @@ export function saveSeedingPlan(data: AppData, plan: SeedingPlan): AppData {
 
 export function deleteSeedingPlan(data: AppData, id: string): AppData {
   return { ...data, seedingPlans: data.seedingPlans.filter(p => p.id !== id) };
+}
+
+// Planter checks
+export function savePlanterCheck(data: AppData, check: PlanterCheck): AppData {
+  const idx = data.planterChecks.findIndex(entry => entry.id === check.id);
+  const updated = idx >= 0
+    ? data.planterChecks.map(entry => entry.id === check.id ? check : entry)
+    : [...data.planterChecks, check];
+  return { ...data, planterChecks: updated };
+}
+
+export function deletePlanterCheck(data: AppData, id: string): AppData {
+  return { ...data, planterChecks: data.planterChecks.filter(entry => entry.id !== id) };
 }
 
 // Tillage reports
