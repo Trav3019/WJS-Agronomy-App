@@ -28,9 +28,11 @@ export default function Harvest({ data, updateData }: Props) {
   const [weatherError, setWeatherError] = useState<string | null>(null);
   const [weatherSnapshot, setWeatherSnapshot] = useState<WeatherData | null>(null);
   const [weatherRefreshKey, setWeatherRefreshKey] = useState(0);
-  const orderedFields = [...data.fields].sort((a, b) =>
-    a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' })
-  );
+  const orderedFields = [...data.fields].sort((a, b) => {
+    const cropCmp = a.cropType.localeCompare(b.cropType);
+    if (cropCmp !== 0) return cropCmp;
+    return a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' });
+  });
   const cropOptions = Array.from(new Set(data.harvestReports.map(r => r.cropType))).sort((a, b) => a.localeCompare(b));
   const fieldOptions = Array.from(
     new Set(
@@ -140,7 +142,19 @@ export default function Harvest({ data, updateData }: Props) {
     .filter(r => !fieldFilter || r.fieldNumber === fieldFilter)
     .sort((a, b) => b.date.localeCompare(a.date));
   const selectedFieldForForm = data.fields.find(f => f.id === form.fieldId);
-  const varietyOptions = selectedFieldForForm ? (VARIETIES_BY_CROP[selectedFieldForForm.cropType] ?? []) : [];
+  // Get varieties that were actually seeded on this field, or fall back to all varieties for the crop
+  const seededVarietiesForField = selectedFieldForForm
+    ? Array.from(
+        new Set(
+          data.seedingEntries
+            .filter(e => e.fieldId === selectedFieldForForm.id && e.variety)
+            .map(e => e.variety)
+        )
+      ).sort()
+    : [];
+  const varietyOptions = seededVarietiesForField.length > 0
+    ? seededVarietiesForField
+    : (selectedFieldForForm ? (VARIETIES_BY_CROP[selectedFieldForForm.cropType] ?? []) : []);
   const isPotatoHarvest = selectedFieldForForm?.cropType === 'Potatoes';
   const fallbackSeedingLocation = selectedFieldForForm
     ? [...data.seedingEntries]
@@ -159,7 +173,18 @@ export default function Harvest({ data, updateData }: Props) {
       setFieldFilter('');
     }
   }, [cropFilter, fieldFilter, fieldOptions]);
-
+  // Auto-populate variety from seeding entry when field is selected
+  useEffect(() => {
+    if (!selectedFieldForForm || editingId) return;
+    const seedingEntry = data.seedingEntries
+      .filter(e => e.fieldId === selectedFieldForForm.id)
+      .sort((a, b) => b.seedingDate.localeCompare(a.seedingDate))[0];
+    if (seedingEntry && seedingEntry.variety) {
+      setForm(f => ({ ...f, variety: seedingEntry.variety }));
+    } else {
+      setForm(f => ({ ...f, variety: '' }));
+    }
+  }, [selectedFieldForForm?.id, editingId, data.seedingEntries]);
   function refreshWeather() {
     setWeatherRefreshKey(prev => prev + 1);
   }
@@ -310,15 +335,21 @@ export default function Harvest({ data, updateData }: Props) {
                   <label className="form-label">Field</label>
                   <select className="form-input" value={form.fieldId} onChange={e => setForm(f => ({ ...f, fieldId: e.target.value }))}>
                     <option value="">Select field...</option>
-                    {orderedFields.map(f => <option key={f.id} value={f.id}>{f.fieldNumber} - {f.cropType}</option>)}
+                    {orderedFields.map(field => (
+                      <option key={field.id} value={field.id}>{field.fieldNumber} ({field.cropType})</option>
+                    ))}
                   </select>
                 </div>
                 <div>
-                  <label className="form-label">Variety</label>
-                  <select className="form-input" value={form.variety} onChange={e => setForm(f => ({ ...f, variety: e.target.value }))}>
-                    <option value="">Select variety...</option>
-                    {varietyOptions.map(v => <option key={v} value={v}>{v}</option>)}
-                  </select>
+                  <label className="form-label">Variety {seededVarietiesForField.length === 1 ? '(from seeding)' : seededVarietiesForField.length > 1 ? '(pick from seeding)' : ''}</label>
+                  {seededVarietiesForField.length === 1 ? (
+                    <input type="text" className="form-input bg-gray-50" value={form.variety} disabled />
+                  ) : (
+                    <select className="form-input" value={form.variety} onChange={e => setForm(f => ({ ...f, variety: e.target.value }))}>
+                      <option value="">Select variety...</option>
+                      {varietyOptions.map(v => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                  )}
                 </div>
                 <div>
                   <label className="form-label">Date</label>
