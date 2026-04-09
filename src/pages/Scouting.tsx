@@ -434,6 +434,7 @@ function PotatoForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Part
         <div className="grid grid-cols-2 gap-3">
           <FormNum label="Avg Stems per Plant" value={data.avgStemsPerPlant} onChange={v => set('avgStemsPerPlant', v)} step={0.1} />
           <FormNum label="Avg Tubers per Stem" value={data.avgTubersPerStem} onChange={v => set('avgTubersPerStem', v)} step={0.1} />
+          <FormSelect label="Tuber Size" value={data.tuberSize} onChange={v => set('tuberSize', v)} opts={['Hooking','Match Stick','Dime Size','1 Inch','2 Inch']} />
           <FormNum label="CPB Larvae (per plant)" value={data.coloradoPotatoBeetle} onChange={v => set('coloradoPotatoBeetle', v)} step={0.1} />
           <FormSelect label="CPB Growth Stage" value={data.cpbGrowthStage} onChange={v => set('cpbGrowthStage', v)} opts={CPB_GROWTH_STAGES} />
           {showAphids && <FormNum label="Aphids (per leaf)" value={data.aphids} onChange={v => set('aphids', v)} />}
@@ -550,7 +551,19 @@ export default function Scouting({ data, updateData }: Props) {
 
   const selectedField = data.fields.find(f => f.id === fieldId);
   const cropType = selectedField?.cropType ?? 'Corn';
-  const varietyOptions = VARIETIES_BY_CROP[cropType] ?? [];
+  // Get varieties that were actually seeded on this field, or fall back to all varieties for the crop
+  const seededVarietiesForField = selectedField
+    ? Array.from(
+        new Set(
+          data.seedingEntries
+            .filter(e => e.fieldId === selectedField.id && e.variety)
+            .map(e => e.variety)
+        )
+      ).sort()
+    : [];
+  const varietyOptions = seededVarietiesForField.length > 0
+    ? seededVarietiesForField
+    : (VARIETIES_BY_CROP[cropType] ?? []);
   const sprayCatalogOptions = selectedField
     ? Array.from(new Set([...(CROP_PRODUCT_OPTIONS[selectedField.cropType] ?? []), ...PRODUCT_OPTIONS]))
     : PRODUCT_OPTIONS;
@@ -629,6 +642,19 @@ export default function Scouting({ data, updateData }: Props) {
   useEffect(() => {
     return () => stopTrailTracking();
   }, []);
+
+  // Auto-populate variety from seeding entry when field is selected
+  useEffect(() => {
+    if (!selectedField || editingReport) return;
+    const seedingEntry = data.seedingEntries
+      .filter(e => e.fieldId === selectedField.id)
+      .sort((a, b) => b.seedingDate.localeCompare(a.seedingDate))[0];
+    if (seedingEntry && seedingEntry.variety) {
+      setVariety(seedingEntry.variety);
+    } else {
+      setVariety('');
+    }
+  }, [selectedField?.id, editingReport, data.seedingEntries]);
 
   function resetForm() {
     stopTrailTracking();
@@ -897,17 +923,21 @@ export default function Scouting({ data, updateData }: Props) {
                     <option value="">Select field...</option>
                     {orderedFields.map(f => (
                       <option key={f.id} value={f.id}>
-                        {f.fieldNumber} — {f.cropType} {f.variety ? `(${f.variety})` : ''}
+                        {f.fieldNumber} ({f.cropType}){f.variety ? ` ${f.variety}` : ''}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="form-label">Variety</label>
-                  <select className="form-input" value={variety} onChange={e => setVariety(e.target.value)}>
-                    <option value="">Select variety...</option>
-                    {varietyOptions.map(v => <option key={v} value={v}>{v}</option>)}
-                  </select>
+                  <label className="form-label">Variety {seededVarietiesForField.length === 1 ? '(from seeding)' : seededVarietiesForField.length > 1 ? '(pick from seeding)' : ''}</label>
+                  {seededVarietiesForField.length === 1 ? (
+                    <input type="text" className="form-input bg-gray-50" value={variety} disabled />
+                  ) : (
+                    <select className="form-input" value={variety} onChange={e => setVariety(e.target.value)}>
+                      <option value="">Select variety...</option>
+                      {varietyOptions.map(v => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                  )}
                 </div>
                 <div>
                   <label className="form-label">Date</label>
