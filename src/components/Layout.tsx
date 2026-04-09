@@ -9,7 +9,7 @@ import { exportExcelData, exportFullDataJson } from '../utils/export';
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/tillage', label: 'Tillage', icon: Tractor },
-  { to: '/seeding', label: 'Seeding', icon: CalendarDays, end: true },
+  { to: '/seeding', label: 'Seeding', icon: CalendarDays },
   { to: '/scouting', label: 'Scouting', icon: ClipboardList },
   { to: '/spray', label: 'Spray Plan', icon: Syringe },
   { to: '/potato-yield', label: 'Potato Yield', icon: Sprout },
