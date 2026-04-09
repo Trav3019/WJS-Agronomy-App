@@ -1,4 +1,4 @@
-import type { AppData, Field, ScoutingReport, PotatoYieldReport, SprayApplication, SeedingEntry, TillageReport, HarvestReport, PotatoStorageBin } from '../types';
+import type { AppData, Field, ScoutingReport, PotatoYieldReport, SprayApplication, SeedingEntry, SeedingPlan, TillageReport, HarvestReport, PotatoStorageBin } from '../types';
 
 const LEGACY_STORAGE_KEY = 'wjs-agronomy-data';
 const STORAGE_KEY_PREFIX = 'wjs-agronomy-data-season-';
@@ -10,6 +10,7 @@ const defaultData: AppData = {
   potatoYieldReports: [],
   sprayApplications: [],
   seedingEntries: [],
+  seedingPlans: [],
   tillageReports: [],
   harvestReports: [],
   potatoStorageBins: [],
@@ -120,7 +121,40 @@ export function saveField(data: AppData, field: Field): AppData {
 }
 
 export function deleteField(data: AppData, id: string): AppData {
-  return { ...data, fields: data.fields.filter(f => f.id !== id) };
+  const field = data.fields.find(f => f.id === id);
+  if (!field) return data;
+
+  const nextSprayApplications = data.sprayApplications
+    .map(app => {
+      const hadScopedFields = app.fieldIds.length > 0 || app.fieldNumbers.length > 0;
+      const fieldIds = app.fieldIds.filter(fieldId => fieldId !== id);
+      const fieldNumbers = app.fieldNumbers.filter(fieldNumber => fieldNumber !== field.fieldNumber);
+      return { app, hadScopedFields, fieldIds, fieldNumbers };
+    })
+    .filter(({ hadScopedFields, fieldIds, fieldNumbers }) => {
+      // Keep true all-field applications (already unscoped),
+      // but drop scoped applications that no longer target any field.
+      if (!hadScopedFields) return true;
+      return fieldIds.length > 0 || fieldNumbers.length > 0;
+    })
+    .map(({ app, fieldIds, fieldNumbers }) => ({
+      ...app,
+      fieldIds,
+      fieldNumbers,
+    }));
+
+  return {
+    ...data,
+    fields: data.fields.filter(f => f.id !== id),
+    scoutingReports: data.scoutingReports.filter(r => r.fieldId !== id && r.fieldNumber !== field.fieldNumber),
+    potatoYieldReports: data.potatoYieldReports.filter(r => r.fieldId !== id && r.fieldNumber !== field.fieldNumber),
+    seedingEntries: data.seedingEntries.filter(e => e.fieldId !== id && e.fieldNumber !== field.fieldNumber),
+    seedingPlans: data.seedingPlans.filter(p => p.fieldId !== id && p.fieldNumber !== field.fieldNumber),
+    tillageReports: data.tillageReports.filter(r => r.fieldId !== id && r.fieldNumber !== field.fieldNumber),
+    harvestReports: data.harvestReports.filter(r => r.fieldId !== id && r.fieldNumber !== field.fieldNumber),
+    potatoStorageBins: data.potatoStorageBins.filter(b => b.fieldNumber !== field.fieldNumber),
+    sprayApplications: nextSprayApplications,
+  };
 }
 
 // Scouting
@@ -173,6 +207,19 @@ export function saveSeedingEntry(data: AppData, entry: SeedingEntry): AppData {
 
 export function deleteSeedingEntry(data: AppData, id: string): AppData {
   return { ...data, seedingEntries: data.seedingEntries.filter(e => e.id !== id) };
+}
+
+// Seeding plans
+export function saveSeedingPlan(data: AppData, plan: SeedingPlan): AppData {
+  const idx = data.seedingPlans.findIndex(p => p.id === plan.id);
+  const updated = idx >= 0
+    ? data.seedingPlans.map(p => p.id === plan.id ? plan : p)
+    : [...data.seedingPlans, plan];
+  return { ...data, seedingPlans: updated };
+}
+
+export function deleteSeedingPlan(data: AppData, id: string): AppData {
+  return { ...data, seedingPlans: data.seedingPlans.filter(p => p.id !== id) };
 }
 
 // Tillage reports
