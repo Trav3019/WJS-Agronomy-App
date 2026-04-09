@@ -7,6 +7,7 @@ import PotatoYield from './pages/PotatoYield';
 import SprayPlanner from './pages/SprayPlanner';
 import Seeding from './pages/Seeding';
 import SeedingPlan from './pages/SeedingPlan';
+import PlanterChecks from './pages/PlanterChecks';
 import Tillage from './pages/Tillage';
 import Harvest from './pages/Harvest';
 import FieldSummary from './pages/FieldSummary';
@@ -30,6 +31,7 @@ function App() {
           <Route path="spray" element={<SprayPlanner data={data} updateData={updateData} />} />
           <Route path="seeding-plan" element={<SeedingPlan data={data} updateData={updateData} />} />
           <Route path="seeding" element={<Seeding data={data} updateData={updateData} />} />
+          <Route path="seeding/planter-checks" element={<PlanterChecks data={data} updateData={updateData} />} />
           <Route path="tillage" element={<Tillage data={data} updateData={updateData} />} />
           <Route path="harvest" element={<Harvest data={data} updateData={updateData} />} />
           <Route path="potato-storage" element={<PotatoStorageBins data={data} updateData={updateData} />} />
