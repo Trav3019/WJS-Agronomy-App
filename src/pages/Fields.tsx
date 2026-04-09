@@ -1,16 +1,15 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import type { Field, CropType, Priority } from '../types';
 import { generateId, saveField, deleteField } from '../utils/storage';
 import type { AppData } from '../types';
 import {
   Plus, Pencil, Trash2, ChevronUp, ChevronDown,
-  AlertTriangle, CheckCircle, Minus, X, FileSpreadsheet
+  X, FileSpreadsheet
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { VARIETIES_BY_CROP } from '../utils/varieties';
 
 const CROPS: CropType[] = ['Corn', 'Canola', 'Soybeans', 'Wheat', 'Edible Beans', 'Oats', 'Potatoes'];
-const PRIORITIES: Priority[] = ['high', 'medium', 'low'];
 
 const CROP_COLORS: Record<CropType, string> = {
   Corn: 'bg-yellow-100 text-yellow-800',
@@ -36,21 +35,21 @@ const emptyField = (): Omit<Field, 'id' | 'createdAt' | 'updatedAt'> => ({
   notes: '',
 });
 
-function PriorityIcon({ p }: { p: Priority }) {
-  if (p === 'high') return <AlertTriangle className="h-4 w-4 text-red-500" />;
-  if (p === 'low') return <CheckCircle className="h-4 w-4 text-green-500" />;
-  return <Minus className="h-4 w-4 text-yellow-500" />;
-}
-
 export default function Fields({ data, updateData }: Props) {
   const [editing, setEditing] = useState<Field | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [form, setForm] = useState(emptyField());
   const [filterCrop, setFilterCrop] = useState<CropType | ''>('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<'fieldNumber' | 'priority' | 'acres'>('fieldNumber');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const excelRef = useRef<HTMLInputElement>(null);
   const varietyOptions = VARIETIES_BY_CROP[form.cropType] ?? [];
+
+  useEffect(() => {
+    const existing = new Set(data.fields.map(f => f.id));
+    setSelectedIds(prev => prev.filter(id => existing.has(id)));
+  }, [data.fields]);
 
   // Excel import
   function handleExcelImport(e: React.ChangeEvent<HTMLInputElement>) {
@@ -129,12 +128,19 @@ export default function Fields({ data, updateData }: Props) {
   function handleDelete(id: string) {
     if (!confirm('Delete this field?')) return;
     updateData(prev => deleteField(prev, id));
+    setSelectedIds(prev => prev.filter(selectedId => selectedId !== id));
   }
 
-  function setPriority(id: string, priority: Priority) {
-    const field = data.fields.find(f => f.id === id);
-    if (!field) return;
-    updateData(prev => saveField(prev, { ...field, priority, updatedAt: new Date().toISOString() }));
+  function handleDeleteSelected() {
+    if (selectedIds.length === 0) return;
+    const label = selectedIds.length === 1 ? 'field' : 'fields';
+    if (!confirm(`Delete ${selectedIds.length} selected ${label}?`)) return;
+    updateData(prev => selectedIds.reduce((acc, id) => deleteField(acc, id), prev));
+    setSelectedIds([]);
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
   }
 
   function toggleSort(col: typeof sortBy) {
@@ -161,6 +167,20 @@ export default function Fields({ data, updateData }: Props) {
       return sortDir === 'asc' ? cmp : -cmp;
     });
 
+  const allVisibleSelected = filtered.length > 0 && filtered.every(field => selectedIds.includes(field.id));
+
+  function toggleSelectAllVisible() {
+    const visibleIds = filtered.map(field => field.id);
+    if (visibleIds.length === 0) return;
+
+    if (allVisibleSelected) {
+      setSelectedIds(prev => prev.filter(id => !visibleIds.includes(id)));
+      return;
+    }
+
+    setSelectedIds(prev => Array.from(new Set([...prev, ...visibleIds])));
+  }
+
   const totalAcres = data.fields.reduce((s, f) => s + f.acres, 0);
   const cropAcres = CROPS.map(crop => ({
     crop,
@@ -179,6 +199,15 @@ export default function Fields({ data, updateData }: Props) {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-green-900">Field Management</h1>
         <div className="flex gap-2">
+          <button
+            onClick={handleDeleteSelected}
+            className="btn-secondary text-red-700 border-red-200 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={selectedIds.length === 0}
+            title="Delete selected fields"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete Selected ({selectedIds.length})
+          </button>
           <button
             onClick={() => excelRef.current?.click()}
             className="btn-secondary"
@@ -225,6 +254,15 @@ export default function Fields({ data, updateData }: Props) {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-green-50 border-b border-gray-200">
+              <th className="text-left px-4 py-3 w-10">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-green-700"
+                  checked={allVisibleSelected}
+                  onChange={toggleSelectAllVisible}
+                  aria-label="Select all visible fields"
+                />
+              </th>
               <th className="text-left px-4 py-3">
                 <button className="flex items-center gap-1 font-semibold text-gray-700 hover:text-green-800" onClick={() => toggleSort('fieldNumber')}>
                   Field # <SortIcon col="fieldNumber" />
@@ -242,9 +280,18 @@ export default function Fields({ data, updateData }: Props) {
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={5} className="text-center py-10 text-gray-400">No fields found. Add a field to get started.</td></tr>
+              <tr><td colSpan={6} className="text-center py-10 text-gray-400">No fields found. Add a field to get started.</td></tr>
             ) : filtered.map(field => (
               <tr key={field.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                <td className="px-4 py-3">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-green-700"
+                    checked={selectedIds.includes(field.id)}
+                    onChange={() => toggleSelected(field.id)}
+                    aria-label={`Select field ${field.fieldNumber}`}
+                  />
+                </td>
                 <td className="px-4 py-3 font-medium text-green-900">{field.fieldNumber}</td>
 
                 <td className="px-4 py-3">
