@@ -190,6 +190,7 @@ export interface PotatoScoutData {
   blackleg: number; // % plants affected
   virusSymptoms: boolean;
   weedPressure: string;
+  tuberSize?: string; // hooking, match stick, dime size, 1 inch, 2 inch
   irrigationStatus?: string;
   soilMoisture?: string; // dry/adequate/saturated
   additionalPests: string;
@@ -275,6 +276,26 @@ export interface SeedingEntry {
   createdAt: string;
 }
 
+export interface SeedingPlan {
+  id: string;
+  fieldId: string;
+  fieldNumber: string;
+  cropType: CropType;
+  variety: string;
+  seedingDate: string;
+  seedingDirection?: 'North-South' | 'East-West';
+  chemicalMix?: string;
+  fieldTrials?: string;
+  seedingRate: number; // seeds/acre
+  rowSpacing?: number; // inches
+  seedDepth?: number; // inches
+  location?: GeoLocation;
+  pinInfo?: string;
+  trialTrack?: ScoutingTrialTrack;
+  notes: string;
+  createdAt: string;
+}
+
 export interface TillageReport {
   id: string;
   fieldId: string;
@@ -326,6 +347,7 @@ export interface AppData {
   potatoYieldReports: PotatoYieldReport[];
   sprayApplications: SprayApplication[];
   seedingEntries: SeedingEntry[];
+  seedingPlans: SeedingPlan[];
   tillageReports: TillageReport[];
   harvestReports: HarvestReport[];
   potatoStorageBins: PotatoStorageBin[];
