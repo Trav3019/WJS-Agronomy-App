@@ -1,6 +1,6 @@
 import { useState, lazy, Suspense } from 'react';
-import type { AppData, SeedingEntry, CropType, GeoLocation } from '../types';
-import { generateId, saveSeedingEntry, deleteSeedingEntry } from '../utils/storage';
+import type { AppData, SeedingPlan, CropType, GeoLocation } from '../types';
+import { generateId, saveSeedingPlan, deleteSeedingPlan } from '../utils/storage';
 import { VARIETIES_BY_CROP } from '../utils/varieties';
 import { CalendarDays, Plus, X, Trash2, Eye, MapPin } from 'lucide-react';
 
@@ -23,7 +23,7 @@ interface Props {
   updateData: (updater: (prev: AppData) => AppData) => void;
 }
 
-const emptyEntry = (): Omit<SeedingEntry, 'id' | 'createdAt'> => ({
+const emptyEntry = (): Omit<SeedingPlan, 'id' | 'createdAt'> => ({
   fieldId: '',
   fieldNumber: '',
   cropType: 'Corn',
@@ -36,12 +36,13 @@ const emptyEntry = (): Omit<SeedingEntry, 'id' | 'createdAt'> => ({
   rowSpacing: undefined,
   seedDepth: undefined,
   location: { lat: 0, lng: 0 },
+  pinInfo: '',
   notes: '',
 });
 
 export default function SeedingPlan({ data, updateData }: Props) {
   const [showForm, setShowForm] = useState(false);
-  const [viewEntry, setViewEntry] = useState<SeedingEntry | null>(null);
+  const [viewEntry, setViewEntry] = useState<SeedingPlan | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyEntry());
   const [drawPoints, setDrawPoints] = useState<GeoLocation[]>([]);
@@ -52,9 +53,11 @@ export default function SeedingPlan({ data, updateData }: Props) {
   const [mapMode, setMapMode] = useState<'pin' | 'draw'>('pin');
   const [seedChemicals, setSeedChemicals] = useState<Array<{ name: string; rate: string }>>([]);
   const [filterCrop, setFilterCrop] = useState<CropType | ''>('');
-  const orderedFields = [...data.fields].sort((a, b) =>
-    a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' })
-  );
+  const orderedFields = [...data.fields].sort((a, b) => {
+    const cropCmp = CROPS.indexOf(a.cropType) - CROPS.indexOf(b.cropType);
+    if (cropCmp !== 0) return cropCmp;
+    return a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' });
+  });
   const varietyOptions = VARIETIES_BY_CROP[form.cropType] ?? [];
 
   function openNew() {
@@ -70,7 +73,7 @@ export default function SeedingPlan({ data, updateData }: Props) {
     setShowForm(true);
   }
 
-  function openEdit(entry: SeedingEntry) {
+  function openEdit(entry: SeedingPlan) {
     setEditingId(entry.id);
     setForm({
       fieldId: entry.fieldId,
@@ -107,6 +110,10 @@ export default function SeedingPlan({ data, updateData }: Props) {
 
   function handleFieldSelect(fieldId: string) {
     const field = data.fields.find(f => f.id === fieldId);
+    const nextCrop = field?.cropType;
+    if (nextCrop && nextCrop !== 'Potatoes') {
+      setSeedChemicals([]);
+    }
     setForm(f => ({
       ...f,
       fieldId,
@@ -127,30 +134,30 @@ export default function SeedingPlan({ data, updateData }: Props) {
       .filter(c => c.name.trim())
       .map(c => `${c.name.trim()}${c.rate ? ` @ ${c.rate.trim()}` : ''}`)
       .join(' | ');
-    const entry: SeedingEntry = {
+    const entry: SeedingPlan = {
       id: editingId ?? generateId(),
       ...form,
       location: normalizedLocation,
-      chemicalMix: chemicalMixString || undefined,
+      chemicalMix: form.cropType === 'Potatoes' ? (chemicalMixString || undefined) : undefined,
       pinInfo: pinInfo.trim() ? pinInfo.trim() : undefined,
       trialTrack: (drawPoints.length > 0 || pinPoints.length > 0)
         ? { name: 'Seeding Plan', points: drawPoints, closedShape, pinPoints, pinLabels }
         : undefined,
       createdAt: editingId
-        ? (data.seedingEntries.find(e => e.id === editingId)?.createdAt ?? now)
+        ? (data.seedingPlans.find(e => e.id === editingId)?.createdAt ?? now)
         : now,
     };
-    updateData(prev => saveSeedingEntry(prev, entry));
+    updateData(prev => saveSeedingPlan(prev, entry));
     setShowForm(false);
   }
 
   function handleDelete(id: string) {
     if (!confirm('Delete this seeding plan?')) return;
-    updateData(prev => deleteSeedingEntry(prev, id));
+    updateData(prev => deleteSeedingPlan(prev, id));
     setViewEntry(null);
   }
 
-  const filtered = data.seedingEntries
+  const filtered = data.seedingPlans
     .filter(e => !filterCrop || e.cropType === filterCrop)
     .sort((a, b) => b.seedingDate.localeCompare(a.seedingDate));
 
@@ -240,14 +247,24 @@ export default function SeedingPlan({ data, updateData }: Props) {
                     <option value="">Select field...</option>
                     {orderedFields.map(f => (
                       <option key={f.id} value={f.id}>
-                        {f.fieldNumber} — {f.cropType}
+                        {f.fieldNumber} ({f.cropType})
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
                   <label className="form-label">Crop Type</label>
-                  <select className="form-input" value={form.cropType} onChange={e => setForm(f => ({ ...f, cropType: e.target.value as CropType }))}>
+                  <select
+                    className="form-input"
+                    value={form.cropType}
+                    onChange={e => {
+                      const nextCrop = e.target.value as CropType;
+                      if (nextCrop !== 'Potatoes') {
+                        setSeedChemicals([]);
+                      }
+                      setForm(f => ({ ...f, cropType: nextCrop }));
+                    }}
+                  >
                     {CROPS.map(c => <option key={c}>{c}</option>)}
                   </select>
                 </div>
@@ -289,52 +306,54 @@ export default function SeedingPlan({ data, updateData }: Props) {
                   <label className="form-label">Seed Depth (inches)</label>
                   <input type="number" step="0.25" className="form-input" value={form.seedDepth ?? ''} onChange={e => setForm(f => ({ ...f, seedDepth: parseFloat(e.target.value) || undefined }))} />
                 </div>
-                <div>
-                  <label className="form-label">Seed Treatments</label>
-                  <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50">
-                    {seedChemicals.map((chem, idx) => {
-                      const isGibberlic = chem.name.toLowerCase().includes('gibberlic');
-                      const unit = isGibberlic ? 'ml/ac' : 'L/ac';
-                      return (
-                        <div key={idx} className="flex gap-2 items-center">
-                          <select
-                            className="form-input flex-1"
-                            value={chem.name}
-                            onChange={e => setSeedChemicals(prev => prev.map((c, i) => i === idx ? { ...c, name: e.target.value } : c))}
-                          >
-                            <option value="">Select product...</option>
-                            {SEED_TREATMENT_PRODUCTS.map(product => (
-                              <option key={product} value={product}>{product}</option>
-                            ))}
-                          </select>
-                          <div className="relative w-32">
-                            <input
-                              className="form-input pr-10 w-full"
-                              value={chem.rate}
-                              onChange={e => setSeedChemicals(prev => prev.map((c, i) => i === idx ? { ...c, rate: e.target.value } : c))}
-                              placeholder="Rate"
-                            />
-                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">{unit}</span>
+                {form.cropType === 'Potatoes' && (
+                  <div>
+                    <label className="form-label">Seed Treatments</label>
+                    <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50">
+                      {seedChemicals.map((chem, idx) => {
+                        const isGibberlic = chem.name.toLowerCase().includes('gibberlic');
+                        const unit = isGibberlic ? 'ml/ac' : 'L/ac';
+                        return (
+                          <div key={idx} className="flex gap-2 items-center">
+                            <select
+                              className="form-input flex-1"
+                              value={chem.name}
+                              onChange={e => setSeedChemicals(prev => prev.map((c, i) => i === idx ? { ...c, name: e.target.value } : c))}
+                            >
+                              <option value="">Select product...</option>
+                              {SEED_TREATMENT_PRODUCTS.map(product => (
+                                <option key={product} value={product}>{product}</option>
+                              ))}
+                            </select>
+                            <div className="relative w-32">
+                              <input
+                                className="form-input pr-10 w-full"
+                                value={chem.rate}
+                                onChange={e => setSeedChemicals(prev => prev.map((c, i) => i === idx ? { ...c, rate: e.target.value } : c))}
+                                placeholder="Rate"
+                              />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">{unit}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setSeedChemicals(prev => prev.filter((_, i) => i !== idx))}
+                              className="text-red-500 hover:bg-red-50 p-1.5 rounded"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => setSeedChemicals(prev => prev.filter((_, i) => i !== idx))}
-                            className="text-red-500 hover:bg-red-50 p-1.5 rounded"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                    <button
-                      type="button"
-                      className="btn-secondary text-xs px-3"
-                      onClick={() => setSeedChemicals(prev => [...prev, { name: '', rate: '' }])}
-                    >
-                      + Add Treatment
-                    </button>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        className="btn-secondary text-xs px-3"
+                        onClick={() => setSeedChemicals(prev => [...prev, { name: '', rate: '' }])}
+                      >
+                        + Add Treatment
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
                 <div>
                   <label className="form-label">Field Trials</label>
                   <textarea
