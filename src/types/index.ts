@@ -296,6 +296,35 @@ export interface SeedingPlan {
   createdAt: string;
 }
 
+export interface PlanterCheckRow {
+  rowNumber: number;
+  spacingInches?: number;
+  doublesCount?: number;
+  skipsCount?: number;
+  notes?: string;
+}
+
+export interface PlanterCheckPass {
+  checkNumber: number;
+  label?: string;
+  rows: PlanterCheckRow[];
+}
+
+export interface PlanterCheck {
+  id: string;
+  fieldId: string;
+  fieldNumber: string;
+  variety: string;
+  date: string;
+  planterName: string;
+  targetSpacingInches: number;
+  toleranceInches: number;
+  checks: PlanterCheckPass[];
+  rows?: PlanterCheckRow[];
+  notes: string;
+  createdAt: string;
+}
+
 export interface TillageReport {
   id: string;
   fieldId: string;
@@ -348,6 +377,7 @@ export interface AppData {
   sprayApplications: SprayApplication[];
   seedingEntries: SeedingEntry[];
   seedingPlans: SeedingPlan[];
+  planterChecks: PlanterCheck[];
   tillageReports: TillageReport[];
   harvestReports: HarvestReport[];
   potatoStorageBins: PotatoStorageBin[];
