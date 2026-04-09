@@ -29,9 +29,11 @@ export default function Tillage({ data, updateData }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [fieldFilter, setFieldFilter] = useState('');
   const [cropFilter, setCropFilter] = useState('');
-  const orderedFields = [...data.fields].sort((a, b) =>
-    a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' })
-  );
+  const orderedFields = [...data.fields].sort((a, b) => {
+    const cropCmp = a.cropType.localeCompare(b.cropType);
+    if (cropCmp !== 0) return cropCmp;
+    return a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' });
+  });
   const fieldOptions = Array.from(
     new Set(
       orderedFields
@@ -195,7 +197,9 @@ export default function Tillage({ data, updateData }: Props) {
                   <label className="form-label">Field</label>
                   <select className="form-input" value={form.fieldId} onChange={e => setForm(f => ({ ...f, fieldId: e.target.value }))}>
                     <option value="">Select field...</option>
-                    {orderedFields.map(f => <option key={f.id} value={f.id}>{f.fieldNumber} - {f.cropType}</option>)}
+                    {orderedFields.map(field => (
+                      <option key={field.id} value={field.id}>{field.fieldNumber} ({field.cropType})</option>
+                    ))}
                   </select>
                 </div>
                 <div>
