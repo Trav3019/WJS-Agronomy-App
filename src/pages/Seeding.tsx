@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { NavLink } from 'react-router-dom';
 import type { AppData, SeedingEntry, CropType, WeatherData, GeoLocation } from '../types';
 import { generateId, saveSeedingEntry, deleteSeedingEntry } from '../utils/storage';
 import { getHistoricalWeather } from '../utils/weather';
@@ -280,6 +281,22 @@ export default function Seeding({ data, updateData }: Props) {
 
   return (
     <div className="space-y-5">
+      <div className="inline-flex rounded-xl border border-green-200 bg-white p-1 shadow-sm">
+        <NavLink
+          to="/seeding"
+          end
+          className={({ isActive }) => `rounded-lg px-3 py-2 text-sm font-medium transition-colors ${isActive ? 'bg-green-700 text-white' : 'text-green-800 hover:bg-green-50'}`}
+        >
+          Seeding Records
+        </NavLink>
+        <NavLink
+          to="/seeding/planter-checks"
+          className={({ isActive }) => `rounded-lg px-3 py-2 text-sm font-medium transition-colors ${isActive ? 'bg-green-700 text-white' : 'text-green-800 hover:bg-green-50'}`}
+        >
+          Planter Checks
+        </NavLink>
+      </div>
+
       <div>
         <h1 className="text-2xl font-bold text-green-900">Seeding Records</h1>
         <p className="text-sm text-gray-500 mt-0.5">Track seeding dates with historical weather data</p>
