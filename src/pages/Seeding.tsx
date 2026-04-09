@@ -99,9 +99,11 @@ export default function Seeding({ data, updateData }: Props) {
   const [isTrackingTrial, setIsTrackingTrial] = useState(false);
   const [trackingError, setTrackingError] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
-  const orderedFields = [...data.fields].sort((a, b) =>
-    a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' })
-  );
+  const orderedFields = [...data.fields].sort((a, b) => {
+    const cropCmp = CROPS.indexOf(a.cropType) - CROPS.indexOf(b.cropType);
+    if (cropCmp !== 0) return cropCmp;
+    return a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' });
+  });
   const filterFieldOptions = Array.from(
     new Set(
       orderedFields
@@ -381,7 +383,7 @@ export default function Seeding({ data, updateData }: Props) {
                     <option value="">Select field...</option>
                     {orderedFields.map(f => (
                       <option key={f.id} value={f.id}>
-                        {f.fieldNumber} — {f.cropType}
+                        {f.fieldNumber} ({f.cropType})
                       </option>
                     ))}
                   </select>
