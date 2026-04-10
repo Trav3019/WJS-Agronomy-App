@@ -183,10 +183,17 @@ export interface PotatoScoutData {
   commonScab: boolean;
   rhizoctoniaStemCanker: boolean;
   blackScurf: boolean;
+  blackDot: boolean;
+  blackSpot: boolean;
+  brownSpot: boolean;
+  earlyDie: boolean;
   pinkRot: boolean;
   pythiumLeak: boolean;
   fusariumDryRot: boolean;
   silverScurf: boolean;
+  powderyScab: boolean;
+  softRot: boolean;
+  potatoVirusY: boolean;
   blackleg: number; // % plants affected
   virusSymptoms: boolean;
   weedPressure: string;
