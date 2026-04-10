@@ -455,7 +455,7 @@ function PotatoForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Part
           <p className="text-xs font-medium text-gray-600 mb-1">Diseases / Issues Present</p>
           <div className="flex flex-wrap gap-3">
             {([
-              'earlyBlight','lateBlight','verticilliumWilt','commonScab','rhizoctoniaStemCanker','blackScurf','pinkRot','pythiumLeak','fusariumDryRot','silverScurf','virusSymptoms',
+              'earlyBlight','lateBlight','verticilliumWilt','commonScab','rhizoctoniaStemCanker','blackScurf','blackDot','blackSpot','brownSpot','earlyDie','pinkRot','pythiumLeak','fusariumDryRot','silverScurf','powderyScab','softRot','potatoVirusY','virusSymptoms',
             ] as const).map(k => (
               <Checkbox key={k} label={k.replace(/([A-Z])/g,' $1').trim()} checked={!!data[k]} onChange={v => set(k, v)} />
             ))}
