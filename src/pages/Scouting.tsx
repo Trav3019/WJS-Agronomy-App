@@ -861,7 +861,7 @@ export default function Scouting({ data, updateData }: Props) {
         <button onClick={openNew} className="btn-primary whitespace-nowrap">
           <Plus className="h-4 w-4" /> New Report
         </button>
-        <div className="flex items-center gap-1 text-xs text-gray-500 self-center">
+        <div className="hidden sm:flex items-center gap-1 text-xs text-gray-500 self-center">
           <Filter className="h-3 w-3" /> {filtered.length} report{filtered.length !== 1 ? 's' : ''}
         </div>
       </div>
