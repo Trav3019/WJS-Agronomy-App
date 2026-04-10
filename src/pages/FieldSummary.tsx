@@ -587,7 +587,16 @@ export default function FieldSummary({ data }: Props) {
                   <div>
                     <h3 className="text-sm font-semibold text-gray-700 mb-2">Chemicals</h3>
                     {(selectedOperation.operation.report.data.chemicals?.length ?? 0) > 0 ? (
-                      <div className="overflow-x-auto">
+                      <>
+                      <div className="space-y-2 sm:hidden">
+                        {(selectedOperation.operation.report.data.chemicals ?? []).map((chemical, index) => (
+                          <div key={`${chemical.name}-${index}`} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                            <div className="font-medium text-gray-900">{chemical.name || '-'}</div>
+                            <div className="text-sm text-gray-600 mt-1">Rate: {chemical.rate ? `${chemical.rate} ${chemical.rateUnit || 'L'}` : '-'}</div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="hidden sm:block overflow-x-auto">
                         <table className="w-full text-sm border-collapse">
                           <thead>
                             <tr className="bg-gray-50">
@@ -605,6 +614,7 @@ export default function FieldSummary({ data }: Props) {
                           </tbody>
                         </table>
                       </div>
+                      </>
                     ) : (
                       <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{selectedOperation.operation.report.data.product || selectedOperation.operation.report.data.products?.join(', ') || 'No chemical list recorded.'}</p>
                     )}
@@ -737,7 +747,29 @@ export default function FieldSummary({ data }: Props) {
 
                   <div>
                     <h3 className="text-sm font-semibold text-gray-700 mb-2">Grade Breakdown</h3>
-                    <div className="overflow-x-auto">
+                    <div className="space-y-2 sm:hidden">
+                      {Object.keys(yieldData.grades)
+                        .filter(grade => (yieldData.grades[grade] ?? 0) > 0 || (yieldData.gradeWeights[grade] ?? 0) > 0)
+                        .map(grade => {
+                          const count = yieldData.grades[grade] ?? 0;
+                          const weight = yieldData.gradeWeights[grade] ?? 0;
+                          const percent = yieldData.totalTuberWeight > 0
+                            ? ((weight / yieldData.totalTuberWeight) * 100).toFixed(1)
+                            : '0.0';
+
+                          return (
+                            <div key={grade} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                              <div className="font-medium text-gray-900">{grade}</div>
+                              <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                                <div><div className="text-gray-500">Count</div><div className="font-medium">{count}</div></div>
+                                <div><div className="text-gray-500">Weight</div><div className="font-medium">{weight.toFixed(2)} lbs</div></div>
+                                <div><div className="text-gray-500">% Weight</div><div className="font-medium">{percent}%</div></div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                    <div className="hidden sm:block overflow-x-auto">
                       <table className="w-full text-sm border-collapse">
                         <thead>
                           <tr className="bg-gray-50">
