@@ -557,7 +557,7 @@ export default function SprayPlanner({ data, updateData }: Props) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="form-label">Water Volume</label>
                   <input className="form-input" value={form.waterVolume} onChange={e => setForm(f => ({ ...f, waterVolume: e.target.value }))} placeholder="e.g. 15 gal/ac" />
