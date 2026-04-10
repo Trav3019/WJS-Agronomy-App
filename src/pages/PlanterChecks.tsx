@@ -432,7 +432,77 @@ export default function PlanterChecks({ data, updateData }: Props) {
                     <h3 className="text-sm font-semibold text-gray-800">Row Measurements - Check {activeCheck.checkNumber}</h3>
                     <div className="text-xs text-gray-500">Enter spacing, doubles, and skips for each planter row.</div>
                   </div>
-                  <div className="overflow-x-auto rounded-xl border border-gray-200">
+                  <div className="space-y-2 sm:hidden">
+                    {activeCheck.rows.map(row => {
+                      const deviation = typeof row.spacingInches === 'number'
+                        ? row.spacingInches - form.targetSpacingInches
+                        : undefined;
+                      const withinTolerance = typeof deviation === 'number' && Math.abs(deviation) <= form.toleranceInches;
+
+                      return (
+                        <div key={row.rowNumber} className="rounded-xl border border-gray-200 bg-white p-3 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm font-semibold text-green-900">Row {row.rowNumber}</div>
+                            <div className="text-xs text-gray-600">
+                              {typeof deviation === 'number' ? `${deviation > 0 ? '+' : ''}${deviation.toFixed(2)}\"` : 'No reading'}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-1 gap-3">
+                            <div>
+                              <label className="form-label">Measured Spacing</label>
+                              <input
+                                type="number"
+                                step="0.1"
+                                className="form-input"
+                                value={row.spacingInches ?? ''}
+                                onChange={e => handleRowChange(row.rowNumber, 'spacingInches', e.target.value)}
+                                placeholder="0.0"
+                              />
+                            </div>
+                            <div>
+                              <div className="text-xs text-gray-500 mb-1">Status</div>
+                              {typeof deviation !== 'number' ? (
+                                <span className="text-xs text-gray-400">No reading</span>
+                              ) : withinTolerance ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
+                                  <CheckCircle2 className="h-3.5 w-3.5" /> In tolerance
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-1 text-xs font-medium text-red-700">
+                                  <AlertCircle className="h-3.5 w-3.5" /> Adjust
+                                </span>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="form-label">Doubles</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  className="form-input"
+                                  value={row.doublesCount ?? ''}
+                                  onChange={e => handleRowChange(row.rowNumber, 'doublesCount', e.target.value)}
+                                  placeholder="0"
+                                />
+                              </div>
+                              <div>
+                                <label className="form-label">Skips</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  className="form-input"
+                                  value={row.skipsCount ?? ''}
+                                  onChange={e => handleRowChange(row.rowNumber, 'skipsCount', e.target.value)}
+                                  placeholder="0"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="hidden sm:block overflow-x-auto rounded-xl border border-gray-200">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b bg-green-50 text-left text-gray-700">
@@ -621,7 +691,29 @@ export default function PlanterChecks({ data, updateData }: Props) {
                             </span>
                           </div>
 
-                          <div className="overflow-x-auto rounded-xl border border-gray-200">
+                          <div className="space-y-2 sm:hidden">
+                            {checkPass.rows.map(row => {
+                              const deviation = typeof row.spacingInches === 'number'
+                                ? row.spacingInches - viewCheck.targetSpacingInches
+                                : undefined;
+
+                              return (
+                                <div key={row.rowNumber} className="rounded-xl border border-gray-200 bg-white p-3 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <div className="text-sm font-semibold text-green-900">Row {row.rowNumber}</div>
+                                    <div className="text-xs text-gray-600">{typeof deviation === 'number' ? `${deviation > 0 ? '+' : ''}${deviation.toFixed(2)}\"` : '—'}</div>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-2 text-sm">
+                                    <div><span className="text-gray-500">Measured:</span> <span className="font-medium">{typeof row.spacingInches === 'number' ? `${row.spacingInches.toFixed(2)}\"` : '—'}</span></div>
+                                    <div><span className="text-gray-500">Deviation:</span> <span className="font-medium">{typeof deviation === 'number' ? `${deviation > 0 ? '+' : ''}${deviation.toFixed(2)}\"` : '—'}</span></div>
+                                    <div><span className="text-gray-500">Doubles:</span> <span className="font-medium">{row.doublesCount ?? 0}</span></div>
+                                    <div><span className="text-gray-500">Skips:</span> <span className="font-medium">{row.skipsCount ?? 0}</span></div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="hidden sm:block overflow-x-auto rounded-xl border border-gray-200">
                             <table className="w-full text-sm">
                               <thead>
                                 <tr className="border-b bg-green-50 text-left text-gray-700">
