@@ -262,14 +262,14 @@ export default function Dashboard({ data }: Props) {
           <div className="card lg:h-[25rem] lg:flex lg:flex-col">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <h2 className="text-base font-semibold text-green-800">Today's Activity</h2>
-              <div className="flex gap-1 overflow-x-auto pb-1 -mx-1 px-1">
-                <button onClick={() => setActivityFilter('all')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'all' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>All</button>
-                <button onClick={() => setActivityFilter('scouting')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'scouting' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>Scouting</button>
-                <button onClick={() => setActivityFilter('spray')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'spray' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-600'}`}>Spray</button>
-                <button onClick={() => setActivityFilter('seeding')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'seeding' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'}`}>Seeding</button>
-                <button onClick={() => setActivityFilter('tillage')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'tillage' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>Tillage</button>
-                <button onClick={() => setActivityFilter('planter-check')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'planter-check' ? 'bg-lime-100 text-lime-800' : 'bg-gray-100 text-gray-600'}`}>Planter Checks</button>
-                <button onClick={() => setActivityFilter('harvest')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'harvest' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-600'}`}>Harvest</button>
+              <div className="flex flex-wrap gap-1.5">
+                <button onClick={() => setActivityFilter('all')} className={`text-xs sm:text-sm px-2 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'all' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>All</button>
+                <button onClick={() => setActivityFilter('scouting')} className={`text-xs sm:text-sm px-2 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'scouting' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>Scouting</button>
+                <button onClick={() => setActivityFilter('spray')} className={`text-xs sm:text-sm px-2 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'spray' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-600'}`}>Spray</button>
+                <button onClick={() => setActivityFilter('seeding')} className={`text-xs sm:text-sm px-2 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'seeding' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'}`}>Seeding</button>
+                <button onClick={() => setActivityFilter('tillage')} className={`text-xs sm:text-sm px-2 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'tillage' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>Tillage</button>
+                <button onClick={() => setActivityFilter('planter-check')} className={`text-xs sm:text-sm px-2 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'planter-check' ? 'bg-lime-100 text-lime-800' : 'bg-gray-100 text-gray-600'}`}>Planter Checks</button>
+                <button onClick={() => setActivityFilter('harvest')} className={`text-xs sm:text-sm px-2 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'harvest' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-600'}`}>Harvest</button>
               </div>
             </div>
             <div className="max-h-80 lg:max-h-none lg:flex-1 overflow-y-auto pr-1">
@@ -351,10 +351,10 @@ export default function Dashboard({ data }: Props) {
                 </div>
 
                 {/* By crop */}
-                <div className="flex flex-wrap gap-2 text-xs sm:text-sm">
+                <div className="flex flex-wrap gap-1.5 text-xs sm:text-sm">
                   <button
                     onClick={() => setWeeklyCropFilter('all')}
-                    className={`px-2.5 py-1.5 rounded-full font-medium min-h-[34px] ${weeklyCropFilter === 'all' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}
+                    className={`px-2 py-1.5 rounded-full font-medium min-h-[34px] ${weeklyCropFilter === 'all' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}
                   >
                     All Crops ({priorityFilteredWeeklyReports.length})
                   </button>
@@ -362,7 +362,7 @@ export default function Dashboard({ data }: Props) {
                     <button
                       key={crop}
                       onClick={() => setWeeklyCropFilter(crop)}
-                      className={`px-2.5 py-1.5 rounded-full font-medium min-h-[34px] flex items-center gap-1 ${weeklyCropFilter === crop ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}
+                      className={`px-2 py-1.5 rounded-full font-medium min-h-[34px] flex items-center gap-1 ${weeklyCropFilter === crop ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}
                     >
                       <span>{CROP_EMOJI[crop] ?? '🌿'}</span>
                       <span>{crop}</span>
@@ -372,7 +372,7 @@ export default function Dashboard({ data }: Props) {
                 </div>
 
                 {/* Priority breakdown */}
-                <div className="flex flex-wrap gap-2 text-xs sm:text-sm">
+                <div className="flex flex-wrap gap-1.5 text-xs sm:text-sm">
                   <button
                     onClick={() => setWeeklyPriorityFilter('all')}
                     className={`px-2.5 py-1.5 rounded-full font-medium min-h-[34px] ${weeklyPriorityFilter === 'all' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}
@@ -642,7 +642,16 @@ export default function Dashboard({ data }: Props) {
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 mb-2">Chemicals</h3>
                 {(viewSpray.chemicals?.length ?? 0) > 0 ? (
-                  <div className="overflow-x-auto">
+                  <>
+                  <div className="space-y-2 sm:hidden">
+                    {(viewSpray.chemicals ?? []).map((chem, idx) => (
+                      <div key={`${chem.name}-${idx}`} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                        <div className="font-medium text-gray-900">{chem.name || '-'}</div>
+                        <div className="text-sm text-gray-600 mt-1">Rate: {chem.rate ? `${chem.rate} ${chem.rateUnit || 'L'}` : '-'}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full text-sm border-collapse">
                       <thead>
                         <tr className="bg-gray-50">
@@ -660,6 +669,7 @@ export default function Dashboard({ data }: Props) {
                       </tbody>
                     </table>
                   </div>
+                  </>
                 ) : (
                   <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{formatSpraySummary(viewSpray)}</p>
                 )}
@@ -768,7 +778,25 @@ export default function Dashboard({ data }: Props) {
 
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 mb-2">Grade Breakdown</h3>
-                <div className="overflow-x-auto">
+                <div className="space-y-2 sm:hidden">
+                  {(viewYield.potatoType === 'table' ? TABLE_GRADES : PROC_GRADES).map(grade => {
+                    const count = viewYield.grades[grade] ?? 0;
+                    const weight = viewYield.gradeWeights[grade] ?? 0;
+                    const pct = viewYield.totalTuberWeight > 0 ? ((weight / viewYield.totalTuberWeight) * 100).toFixed(1) : '0.0';
+                    if (count === 0 && weight === 0) return null;
+                    return (
+                      <div key={grade} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                        <div className="font-medium text-gray-900">{grade}</div>
+                        <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                          <div><div className="text-gray-500">Count</div><div className="font-medium">{count}</div></div>
+                          <div><div className="text-gray-500">Weight</div><div className="font-medium">{weight.toFixed(2)} lbs</div></div>
+                          <div><div className="text-gray-500">% Weight</div><div className="font-medium">{pct}%</div></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-sm border-collapse">
                     <thead>
                       <tr className="bg-gray-50">
