@@ -196,12 +196,12 @@ export default function Fields({ data, updateData }: Props) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <h1 className="text-2xl font-bold text-green-900">Field Management</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <button
             onClick={handleDeleteSelected}
-            className="btn-secondary text-red-700 border-red-200 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-secondary text-red-700 border-red-200 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed flex-1 sm:flex-none"
             disabled={selectedIds.length === 0}
             title="Delete selected fields"
           >
@@ -210,13 +210,13 @@ export default function Fields({ data, updateData }: Props) {
           </button>
           <button
             onClick={() => excelRef.current?.click()}
-            className="btn-secondary"
+            className="btn-secondary flex-1 sm:flex-none"
             title="Import from Excel"
           >
             <FileSpreadsheet className="h-4 w-4" />
             Import Excel
           </button>
-          <button onClick={openNew} className="btn-primary">
+          <button onClick={openNew} className="btn-primary flex-1 sm:flex-none justify-center">
             <Plus className="h-4 w-4" /> Add Field
           </button>
         </div>
@@ -250,8 +250,50 @@ export default function Fields({ data, updateData }: Props) {
       </div>
 
       {/* Table */}
-      <div className="card overflow-x-auto p-0">
-        <table className="w-full text-sm">
+      <div className="space-y-3 sm:hidden">
+        {filtered.length === 0 ? (
+          <div className="card text-center py-10 text-gray-400">No fields found. Add a field to get started.</div>
+        ) : filtered.map(field => (
+          <div key={field.id} className="card">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3 min-w-0 flex-1">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-green-700 mt-1 shrink-0"
+                  checked={selectedIds.includes(field.id)}
+                  onChange={() => toggleSelected(field.id)}
+                  aria-label={`Select field ${field.fieldNumber}`}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="font-semibold text-green-900">{field.fieldNumber}</div>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${CROP_COLORS[field.cropType]}`}>
+                      {field.cropType}
+                    </span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-1 gap-1 text-sm text-gray-600">
+                    <div><span className="text-gray-500">Variety:</span> <span className="font-medium">{field.variety || '—'}</span></div>
+                    <div><span className="text-gray-500">Acres:</span> <span className="font-medium">{field.acres > 0 ? field.acres.toFixed(1) : '—'}</span></div>
+                    <div><span className="text-gray-500">Priority:</span> <span className="font-medium capitalize">{field.priority}</span></div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button onClick={() => openEdit(field)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors">
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <button onClick={() => handleDelete(field.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden sm:block card p-0 overflow-hidden">
+        <div className="overflow-x-auto -mx-1 px-1 sm:mx-0 sm:px-0">
+        <table className="w-full text-sm min-w-[36rem] sm:min-w-0">
           <thead>
             <tr className="bg-green-50 border-b border-gray-200">
               <th className="text-left px-4 py-3 w-10">
@@ -315,12 +357,13 @@ export default function Fields({ data, updateData }: Props) {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Edit Modal */}
       {editing && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full max-w-lg my-0 sm:my-4 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b">
               <h2 className="text-lg font-semibold">{isNew ? 'Add Field' : 'Edit Field'}</h2>
               <button onClick={() => setEditing(null)} className="text-gray-400 hover:text-gray-600">
@@ -328,7 +371,7 @@ export default function Fields({ data, updateData }: Props) {
               </button>
             </div>
             <div className="p-5 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="form-label">Field # *</label>
                   <input
@@ -349,7 +392,7 @@ export default function Fields({ data, updateData }: Props) {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="form-label">Crop Type</label>
                   <select className="form-input" value={form.cropType} onChange={e => {
