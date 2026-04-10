@@ -7,7 +7,7 @@ import PotatoYield from './pages/PotatoYield';
 import SprayPlanner from './pages/SprayPlanner';
 import Seeding from './pages/Seeding';
 import SeedingPlan from './pages/SeedingPlan';
-import PlanterChecks from './pages/PlanterChecks';
+import PlanterChecks from './pages/PlanterChecks.tsx';
 import Tillage from './pages/Tillage';
 import Harvest from './pages/Harvest';
 import FieldSummary from './pages/FieldSummary';
