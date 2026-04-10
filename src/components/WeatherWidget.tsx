@@ -144,7 +144,7 @@ export default function WeatherWidget() {
       </div>
 
       {/* Stats grid */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
         <div className="bg-blue-50 rounded-lg p-2 text-center">
           <Droplets className="h-4 w-4 text-blue-500 mx-auto mb-1" />
           <div className="text-sm font-medium text-blue-700">{mmToInches(weather.precipitation).toFixed(2)} in</div>
@@ -165,7 +165,7 @@ export default function WeatherWidget() {
       {/* 7-day forecast */}
       {forecast.length > 0 && (
         <div>
-          <div className="mb-2 grid grid-cols-2 gap-2">
+          <div className="mb-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="rounded-lg bg-blue-50 p-3">
               <div className="text-xs text-blue-700">Single-Day Rain Accumulation</div>
               <div className="text-xl font-semibold text-blue-800">{mmToInches(dayRain).toFixed(2)} in</div>
@@ -176,13 +176,13 @@ export default function WeatherWidget() {
             </div>
           </div>
           <h3 className="text-sm font-semibold text-gray-600 mb-2">7-Day Forecast</h3>
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid grid-cols-4 sm:grid-cols-7 gap-1">
             {forecast.map((day, i) => (
               <button
                 key={day.date}
                 type="button"
                 onClick={() => setSelectedForecastIndex(i)}
-                className={`text-center rounded-lg p-1 transition-colors ${selectedForecastIndex === i ? 'bg-green-100 ring-1 ring-green-300' : 'bg-gray-50 hover:bg-green-50'}`}
+                className={`text-center rounded-lg p-1 sm:p-1.5 transition-colors ${selectedForecastIndex === i ? 'bg-green-100 ring-1 ring-green-300' : 'bg-gray-50 hover:bg-green-50'}`}
               >
                 <div className="text-xs text-gray-500">
                   {i === 0 ? 'Today' : new Date(day.date + 'T12:00:00').toLocaleDateString('en-CA', { weekday: 'short' })}
@@ -213,7 +213,7 @@ export default function WeatherWidget() {
                 <div className="text-3xl">{getWeatherEmoji(selectedForecast.weatherCode)}</div>
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                 <div className="rounded-lg bg-white p-2">
                   <div className="text-gray-500">High / Low</div>
                   <div className="font-medium text-gray-800">{Math.round(selectedForecast.temperatureMax)}°C / {Math.round(selectedForecast.temperatureMin)}°C</div>
