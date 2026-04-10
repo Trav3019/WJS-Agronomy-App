@@ -197,7 +197,7 @@ export default function PotatoYield({ data, updateData }: Props) {
             ))}
           </select>
         </div>
-        <div className="text-sm text-gray-500 self-center">{filtered.length} report{filtered.length !== 1 ? 's' : ''}</div>
+        <div className="hidden sm:block text-sm text-gray-500 self-center">{filtered.length} report{filtered.length !== 1 ? 's' : ''}</div>
       </div>
 
       {/* Reports list */}
@@ -272,7 +272,7 @@ export default function PotatoYield({ data, updateData }: Props) {
 
             <div className="p-5 space-y-5">
               {/* Header */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="form-label">Field</label>
                   <select className="form-input" value={form.fieldId} onChange={e => handleFieldSelect(e.target.value)}>
@@ -316,7 +316,45 @@ export default function PotatoYield({ data, updateData }: Props) {
                 <h3 className="text-sm font-semibold text-green-800 mb-3">
                   {form.potatoType === 'table' ? 'Table Potato Grades (by size)' : 'Processing Potato Grades (by weight)'}
                 </h3>
-                <div className="overflow-x-auto">
+                <div className="space-y-2 sm:hidden">
+                  {grades.map(grade => (
+                    <div key={grade} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                      <div className="font-medium text-gray-700 mb-2">{grade}</div>
+                      <div className="grid grid-cols-1 gap-3">
+                        <div>
+                          <label className="form-label">Count</label>
+                          <input
+                            type="number"
+                            min="0"
+                            className="form-input"
+                            value={form.grades[grade] ?? ''}
+                            onChange={e => setGradeCount(grade, parseInt(e.target.value) || 0)}
+                            placeholder="0"
+                          />
+                        </div>
+                        <div>
+                          <label className="form-label">Weight (lbs)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            className="form-input"
+                            value={form.gradeWeights[grade] ?? ''}
+                            onChange={e => setGradeWeight(grade, parseFloat(e.target.value) || 0)}
+                            placeholder="0.0"
+                          />
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          % Weight: {form.totalTuberWeight > 0 ? (((form.gradeWeights[grade] ?? 0) / form.totalTuberWeight) * 100).toFixed(1) : '0.0'}%
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-semibold text-green-800">
+                    Totals: {form.totalTuberCount} tubers, {form.totalTuberWeight.toFixed(2)} lbs, 100%
+                  </div>
+                </div>
+                <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-sm border-collapse">
                     <thead>
                       <tr className="bg-green-50">
@@ -429,7 +467,7 @@ export default function PotatoYield({ data, updateData }: Props) {
               </button>
             </div>
             <div className="p-5 space-y-4">
-              <div className="grid grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                 <div><span className="text-gray-500">Date:</span> <span className="font-medium">{viewReport.date}</span></div>
                 <div><span className="text-gray-500">Type:</span> <span className="font-medium capitalize">{viewReport.potatoType}</span></div>
                 <div><span className="text-gray-500">Variety:</span> <span className="font-medium">{viewReport.variety || '—'}</span></div>
@@ -438,7 +476,28 @@ export default function PotatoYield({ data, updateData }: Props) {
               {/* Grade breakdown */}
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 mb-2">Grade Breakdown</h3>
-                <div className="overflow-x-auto">
+                <div className="space-y-2 sm:hidden">
+                  {(viewReport.potatoType === 'table' ? TABLE_GRADES : PROC_GRADES).map(grade => {
+                    const count = viewReport.grades[grade] ?? 0;
+                    const weight = viewReport.gradeWeights[grade] ?? 0;
+                    const pct = viewReport.totalTuberWeight > 0 ? (weight / viewReport.totalTuberWeight * 100).toFixed(1) : '0.0';
+                    if (count === 0 && weight === 0) return null;
+                    return (
+                      <div key={grade} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                        <div className="font-medium text-gray-900">{grade}</div>
+                        <div className="mt-2 grid grid-cols-3 gap-2 text-sm">
+                          <div><div className="text-gray-500">Count</div><div className="font-medium">{count}</div></div>
+                          <div><div className="text-gray-500">Weight</div><div className="font-medium">{weight.toFixed(2)} lbs</div></div>
+                          <div><div className="text-gray-500">% Weight</div><div className="font-medium">{pct}%</div></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className="rounded-lg border border-green-200 bg-green-50 p-3 text-sm font-semibold text-green-800">
+                    Totals: {viewReport.totalTuberCount} tubers, {viewReport.totalTuberWeight.toFixed(2)} lbs, 100%
+                  </div>
+                </div>
+                <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-sm border-collapse">
                     <thead>
                       <tr className="bg-gray-50">
