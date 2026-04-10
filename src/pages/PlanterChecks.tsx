@@ -7,7 +7,6 @@ import {
   AlertCircle,
   CheckCircle2,
   Ruler,
-  Settings2,
   X,
 } from 'lucide-react';
 import type { AppData, Field, PlanterCheck, PlanterCheckPass, PlanterCheckRow } from '../types';
@@ -277,25 +276,6 @@ export default function PlanterChecks({ data, updateData }: Props) {
         <button onClick={openNew} className="btn-primary">
           <Plus className="h-4 w-4" /> New Planter Check
         </button>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-4">
-        <div className="card">
-          <div className="text-xs uppercase tracking-wide text-gray-500">Checks Logged</div>
-          <div className="mt-2 text-2xl font-bold text-green-900">{filteredChecks.length}</div>
-        </div>
-        <div className="card">
-          <div className="text-xs uppercase tracking-wide text-gray-500">Potato Fields</div>
-          <div className="mt-2 text-2xl font-bold text-green-900">{potatoFields.length}</div>
-        </div>
-        <div className="card md:col-span-2 border border-green-100 bg-green-50/70">
-          <div className="flex items-start gap-3">
-            <Settings2 className="h-5 w-5 text-green-700 mt-0.5" />
-            <div className="text-sm text-green-900">
-              Use this for pre-start or in-field potato planter checks. Run up to three checks per field and track doubles/skips by row so problem units stand out quickly.
-            </div>
-          </div>
-        </div>
       </div>
 
       {filteredChecks.length === 0 ? (
