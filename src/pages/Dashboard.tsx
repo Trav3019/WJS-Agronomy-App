@@ -668,11 +668,8 @@ export default function Dashboard({ data }: Props) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div><span className="text-gray-500">Application Method:</span> <span className="font-medium">{viewSpray.applicationMethod || '-'}</span></div>
                 <div><span className="text-gray-500">Water Volume:</span> <span className="font-medium">{viewSpray.waterVolume || '-'}</span></div>
-                <div><span className="text-gray-500">Target Pest:</span> <span className="font-medium">{viewSpray.targetPest || '-'}</span></div>
-                <div><span className="text-gray-500">Active Ingredient:</span> <span className="font-medium">{viewSpray.activeIngredient || '-'}</span></div>
                 <div><span className="text-gray-500">Sprayer:</span> <span className="font-medium">{viewSpray.sprayer || '-'}</span></div>
                 <div><span className="text-gray-500">Operator:</span> <span className="font-medium">{viewSpray.operator || '-'}</span></div>
-                <div className="sm:col-span-2"><span className="text-gray-500">Weather at Application:</span> <span className="font-medium">{viewSpray.weatherAtApplication || '-'}</span></div>
               </div>
 
               {viewSpray.notes && (
