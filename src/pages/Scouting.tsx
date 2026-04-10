@@ -1160,17 +1160,6 @@ export default function Scouting({ data, updateData }: Props) {
                 <PhotoCapture photos={photos} onChange={setPhotos} maxPhotos={8} />
               </div>
 
-              {/* Notes */}
-              <div>
-                <label className="form-label">General Notes</label>
-                <textarea
-                  className="form-input resize-none"
-                  rows={3}
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  placeholder="Overall observations, recommendations..."
-                />
-              </div>
             </div>
 
             <div className="flex justify-end gap-3 p-5 border-t bg-gray-50 rounded-b-xl">
