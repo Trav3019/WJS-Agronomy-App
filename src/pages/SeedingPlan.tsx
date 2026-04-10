@@ -254,7 +254,7 @@ export default function SeedingPlan({ data, updateData }: Props) {
             </div>
 
             <div className="p-5 space-y-5">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="form-label">Field</label>
                   <select className="form-input" value={form.fieldId} onChange={e => handleFieldSelect(e.target.value)}>
@@ -465,7 +465,7 @@ export default function SeedingPlan({ data, updateData }: Props) {
               </button>
             </div>
             <div className="p-5 space-y-4 text-sm">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
                   ['Crop', viewEntry.cropType],
                   ['Variety', viewEntry.variety || '—'],
