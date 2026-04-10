@@ -751,6 +751,8 @@ export default function Scouting({ data, updateData }: Props) {
 
       if (shouldSaveSpray && field && sprayApplicationId) {
         const existingSpray = prev.sprayApplications.find(a => a.id === sprayApplicationId);
+        const existingNotes = (existingSpray?.notes || '').trim();
+        const preservedNotes = existingNotes.startsWith('Created from scouting report') ? '' : existingNotes;
         next = saveSprayApplication(next, {
           id: sprayApplicationId,
           fieldIds: [field.id],
@@ -770,7 +772,7 @@ export default function Scouting({ data, updateData }: Props) {
           status: existingSpray?.status ?? 'planned',
           priority,
           weatherAtApplication: '',
-          notes: sprayNotes || `Created from scouting report ${report.fieldNumber} on ${date}`,
+          notes: sprayNotes || preservedNotes,
           createdAt: existingSpray?.createdAt ?? now,
           updatedAt: now,
         });
