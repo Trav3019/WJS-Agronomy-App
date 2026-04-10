@@ -124,7 +124,7 @@ export default function PotatoStorageBins({ data, updateData }: Props) {
         <div className="card border-green-300 bg-green-50/40">
           <h2 className="font-semibold text-green-900 mb-3">New Bin</h2>
           <div className="flex flex-wrap gap-3 items-end">
-            <div className="flex-1 min-w-[140px]">
+            <div className="w-full sm:flex-1 sm:min-w-[140px]">
               <label className="block text-sm font-medium text-gray-700 mb-1">Bin Name</label>
               <input
                 type="text"
@@ -134,7 +134,7 @@ export default function PotatoStorageBins({ data, updateData }: Props) {
                 className="input w-full"
               />
             </div>
-            <div className="flex-1 min-w-[160px]">
+            <div className="w-full sm:flex-1 sm:min-w-[160px]">
               <label className="block text-sm font-medium text-gray-700 mb-1">Capacity (CWT)</label>
               <input
                 type="number"
@@ -146,9 +146,9 @@ export default function PotatoStorageBins({ data, updateData }: Props) {
                 onKeyDown={e => e.key === 'Enter' && handleAddBin()}
               />
             </div>
-            <div className="flex gap-2 pb-0.5">
-              <button onClick={handleAddBin} className="btn-primary">Save</button>
-              <button onClick={() => { setShowAddBin(false); setAddBinError(''); }} className="btn-secondary">Cancel</button>
+            <div className="flex gap-2 pb-0.5 w-full sm:w-auto">
+              <button onClick={handleAddBin} className="btn-primary flex-1 sm:flex-none justify-center">Save</button>
+              <button onClick={() => { setShowAddBin(false); setAddBinError(''); }} className="btn-secondary flex-1 sm:flex-none justify-center">Cancel</button>
             </div>
           </div>
           {addBinError && <p className="text-red-600 text-xs mt-2">{addBinError}</p>}
