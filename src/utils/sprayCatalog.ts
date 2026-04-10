@@ -12,6 +12,7 @@ export const SPRAY_PRODUCT_OPTIONS = [
   'BASAGRAN FORTE',
   'BRAVO',
   'EDGE',
+  'Envita',
   'EPTAM',
   'GLUFOSINATE',
   'Centurioun',
