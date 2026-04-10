@@ -54,7 +54,7 @@ export default function SoilTemperatureWidget() {
           <span className="text-sm">{error || 'Soil temperatures unavailable.'}</span>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div className="rounded-lg bg-green-50 p-3 text-center">
             <div className="text-xs text-green-700">2"</div>
             <div className="text-2xl font-semibold text-green-900">{soil.temp0cm.toFixed(0)} C</div>
