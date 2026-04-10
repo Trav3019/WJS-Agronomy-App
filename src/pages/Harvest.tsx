@@ -249,12 +249,12 @@ export default function Harvest({ data, updateData }: Props) {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-green-900">Harvest</h1>
           <p className="text-sm text-gray-500 mt-1">Track harvest outcomes by field and date.</p>
         </div>
-        <button onClick={openNew} className="btn-primary whitespace-nowrap">
+        <button onClick={openNew} className="btn-primary whitespace-nowrap w-full sm:w-auto justify-center">
           <Plus className="h-4 w-4" /> New Report
         </button>
       </div>
@@ -413,7 +413,7 @@ export default function Harvest({ data, updateData }: Props) {
                       </div>
                       {weatherSnapshot ? (
                         <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 mt-1">
-                          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
                             <div><span className="text-gray-500">Avg Temp:</span> <span className="font-medium">{weatherSnapshot.temperature.toFixed(1)} C</span></div>
                             <div><span className="text-gray-500">Min/Max:</span> <span className="font-medium">{weatherSnapshot.temperatureMin?.toFixed(1)} / {weatherSnapshot.temperatureMax?.toFixed(1)} C</span></div>
                             <div><span className="text-gray-500">Rain:</span> <span className="font-medium">{weatherSnapshot.precipitation.toFixed(1)} mm</span></div>
@@ -464,8 +464,8 @@ export default function Harvest({ data, updateData }: Props) {
       )}
 
       {viewReport && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full max-w-lg my-0 sm:my-4 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b">
               <h2 className="text-lg font-semibold">Harvest Report - Field {viewReport.fieldNumber}</h2>
               <button onClick={() => setViewReport(null)} className="text-gray-400 hover:text-gray-600">
