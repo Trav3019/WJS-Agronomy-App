@@ -1,32 +1,31 @@
-﻿//  PlanterChecks page  rebuilt with 3-pass checks + doubles/skips 
 import { useMemo, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { AlertCircle, CheckCircle2, Eye, Plus, Ruler, Trash2, X } from 'lucide-react';
+import {
+  Plus,
+  Trash2,
+  Eye,
+  AlertCircle,
+  CheckCircle2,
+  Ruler,
+  Settings2,
+  X,
+} from 'lucide-react';
 import type { AppData, Field, PlanterCheck, PlanterCheckPass, PlanterCheckRow } from '../types';
 import { deletePlanterCheck, generateId, savePlanterCheck } from '../utils/storage';
+import { VARIETIES_BY_CROP } from '../utils/varieties';
 
 interface Props {
   data: AppData;
   updateData: (updater: (prev: AppData) => AppData) => void;
 }
 
-//  helpers 
+const DEFAULT_PLANTER_NAME = '8 Row Spudnik';
 
-function emptyRows(): PlanterCheckRow[] {
-  return Array.from({ length: 8 }, (_, i) => ({
-    rowNumber: i + 1,
-    spacingInches: undefined,
-    doublesCount: undefined,
-    skipsCount: undefined,
-    notes: '',
-  }));
-}
-
-function hydrateRows(rows: PlanterCheckRow[] = []): PlanterCheckRow[] {
-  return Array.from({ length: 8 }, (_, i) => {
-    const existing = rows.find(r => r.rowNumber === i + 1);
+function createRows(rows: PlanterCheckRow[] = []): PlanterCheckRow[] {
+  return Array.from({ length: 8 }, (_, index) => {
+    const existing = rows.find(row => row.rowNumber === index + 1);
     return existing ?? {
-      rowNumber: i + 1,
+      rowNumber: index + 1,
       spacingInches: undefined,
       doublesCount: undefined,
       skipsCount: undefined,
@@ -35,147 +34,152 @@ function hydrateRows(rows: PlanterCheckRow[] = []): PlanterCheckRow[] {
   });
 }
 
-function emptyPasses(): PlanterCheckPass[] {
-  return [1, 2, 3].map(n => ({ checkNumber: n, rows: emptyRows() }));
-}
+function createPasses(checks: PlanterCheckPass[] = [], legacyRows: PlanterCheckRow[] = []): PlanterCheckPass[] {
+  return [1, 2, 3].map(checkNumber => {
+    const existing = checks.find(check => check.checkNumber === checkNumber);
+    if (existing) {
+      return {
+        ...existing,
+        rows: createRows(existing.rows),
+      };
+    }
 
-function hydratePasses(checks: PlanterCheckPass[]): PlanterCheckPass[] {
-  return [1, 2, 3].map(n => {
-    const existing = checks.find(c => c.checkNumber === n);
-    return existing
-      ? { ...existing, rows: hydrateRows(existing.rows) }
-      : { checkNumber: n, rows: emptyRows() };
+    if (checkNumber === 1 && legacyRows.length > 0) {
+      return {
+        checkNumber,
+        rows: createRows(legacyRows),
+      };
+    }
+
+    return {
+      checkNumber,
+      rows: createRows(),
+    };
   });
 }
 
-type FormState = Omit<PlanterCheck, 'id' | 'createdAt'>;
-
-function emptyForm(): FormState {
+function emptyCheck(): Omit<PlanterCheck, 'id' | 'createdAt'> {
   return {
     fieldId: '',
     fieldNumber: '',
     variety: '',
     date: new Date().toISOString().split('T')[0],
-    planterName: '8 Row Spudnik',
+    planterName: DEFAULT_PLANTER_NAME,
     targetSpacingInches: 10,
     toleranceInches: 1,
-    checks: emptyPasses(),
+    checks: createPasses(),
     notes: '',
   };
 }
 
-interface PassSummary {
-  measured: number;
-  inTolerance: number;
+interface RowSummary {
+  measuredCount: number;
+  avgSpacing: number;
+  avgDeviation: number;
   accuracyScore: number;
-  avgSpacing: number | null;
-  worstRowNum: number | null;
+  withinToleranceCount: number;
+  worstRow: PlanterCheckRow | null;
   totalDoubles: number;
   totalSkips: number;
 }
 
-function summarisePass(
-  pass: PlanterCheckPass,
-  target: number,
-  tolerance: number,
-): PassSummary {
-  const measured = pass.rows.filter(r => r.spacingInches != null).length;
-  const inTolerance = pass.rows.filter(
-    r => r.spacingInches != null && Math.abs((r.spacingInches as number) - target) <= tolerance,
-  ).length;
-  const spacings = pass.rows.filter(r => r.spacingInches != null).map(r => r.spacingInches as number);
-  const avgSpacing = spacings.length ? spacings.reduce((a, b) => a + b, 0) / spacings.length : null;
-  const worstRow = pass.rows
-    .filter(r => r.spacingInches != null)
-    .reduce<PlanterCheckRow | null>((worst, r) => {
-      if (!worst) return r;
-      return Math.abs((r.spacingInches as number) - target) > Math.abs((worst.spacingInches as number) - target)
-        ? r
-        : worst;
-    }, null);
-  const totalDoubles = pass.rows.reduce((s, r) => s + (r.doublesCount ?? 0), 0);
-  const totalSkips = pass.rows.reduce((s, r) => s + (r.skipsCount ?? 0), 0);
+function summarizeRows(rows: PlanterCheckRow[], targetSpacingInches: number, toleranceInches: number): RowSummary {
+  const measuredRows = rows.filter(row => typeof row.spacingInches === 'number' && Number.isFinite(row.spacingInches));
+  const totalDoubles = rows.reduce((sum, row) => sum + (row.doublesCount ?? 0), 0);
+  const totalSkips = rows.reduce((sum, row) => sum + (row.skipsCount ?? 0), 0);
+
+  if (measuredRows.length === 0 || targetSpacingInches <= 0) {
+    return {
+      measuredCount: 0,
+      avgSpacing: 0,
+      avgDeviation: 0,
+      accuracyScore: 0,
+      withinToleranceCount: 0,
+      worstRow: null,
+      totalDoubles,
+      totalSkips,
+    };
+  }
+
+  const deviations = measuredRows.map(row => ({
+    row,
+    deviation: Math.abs((row.spacingInches ?? 0) - targetSpacingInches),
+  }));
+
+  const avgSpacing = measuredRows.reduce((sum, row) => sum + (row.spacingInches ?? 0), 0) / measuredRows.length;
+  const avgDeviation = deviations.reduce((sum, item) => sum + item.deviation, 0) / deviations.length;
+  const accuracyScore = Math.max(0, 100 - (avgDeviation / targetSpacingInches) * 100);
+  const withinToleranceCount = deviations.filter(item => item.deviation <= toleranceInches).length;
+  const worstRow = deviations.sort((a, b) => b.deviation - a.deviation)[0]?.row ?? null;
+
   return {
-    measured,
-    inTolerance,
-    accuracyScore: measured ? Math.round((inTolerance / measured) * 100) : 0,
+    measuredCount: measuredRows.length,
     avgSpacing,
-    worstRowNum: worstRow?.rowNumber ?? null,
+    avgDeviation,
+    accuracyScore,
+    withinToleranceCount,
+    worstRow,
     totalDoubles,
     totalSkips,
   };
 }
 
-function summariseAll(
-  checks: PlanterCheckPass[],
-  target: number,
-  tolerance: number,
-): PassSummary {
-  const all = checks.map(c => summarisePass(c, target, tolerance));
-  const measured = all.reduce((s, p) => s + p.measured, 0);
-  const inTolerance = all.reduce((s, p) => s + p.inTolerance, 0);
-  const totalDoubles = all.reduce((s, p) => s + p.totalDoubles, 0);
-  const totalSkips = all.reduce((s, p) => s + p.totalSkips, 0);
-  const spacings = checks.flatMap(c =>
-    c.rows.filter(r => r.spacingInches != null).map(r => r.spacingInches as number),
-  );
-  return {
-    measured,
-    inTolerance,
-    accuracyScore: measured ? Math.round((inTolerance / measured) * 100) : 0,
-    avgSpacing: spacings.length ? spacings.reduce((a, b) => a + b, 0) / spacings.length : null,
-    worstRowNum: null,
-    totalDoubles,
-    totalSkips,
-  };
+function summarizeChecks(checks: PlanterCheckPass[], targetSpacingInches: number, toleranceInches: number): RowSummary {
+  const allRows = checks.flatMap(check => check.rows);
+  return summarizeRows(allRows, targetSpacingInches, toleranceInches);
 }
 
-function tone(score: number): string {
-  if (score >= 95) return 'text-green-600';
-  if (score >= 90) return 'text-yellow-600';
-  return 'text-red-600';
+function accuracyTone(score: number) {
+  if (score >= 95) return 'text-green-700 bg-green-50 border-green-200';
+  if (score >= 90) return 'text-amber-700 bg-amber-50 border-amber-200';
+  return 'text-red-700 bg-red-50 border-red-200';
 }
 
-function fieldLabel(f: Field): string {
-  return `Field ${f.fieldNumber}${f.name ? `  ${f.name}` : ''}`;
+function fieldLabel(field: Field) {
+  return `${field.fieldNumber} (${field.cropType})`;
 }
-
-//  component 
 
 export default function PlanterChecks({ data, updateData }: Props) {
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<FormState>(emptyForm);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [viewCheck, setViewCheck] = useState<PlanterCheck | null>(null);
-  const [activePass, setActivePass] = useState(0);
-
   const potatoFields = useMemo(
-    () => data.fields.filter(f => f.cropType?.toLowerCase() === 'potato'),
-    [data.fields],
+    () => [...data.fields]
+      .filter(field => field.cropType === 'Potatoes')
+      .sort((a, b) => a.fieldNumber.localeCompare(b.fieldNumber, undefined, { numeric: true, sensitivity: 'base' })),
+    [data.fields]
   );
+
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [viewCheck, setViewCheck] = useState<PlanterCheck | null>(null);
+  const [activeCheckIndex, setActiveCheckIndex] = useState(0);
+  const [form, setForm] = useState(emptyCheck());
+
+  const filteredChecks = [...data.planterChecks].sort((a, b) => b.date.localeCompare(a.date));
 
   const fieldVarieties = useMemo(() => {
     if (!form.fieldId) return [];
     const entries = data.seedingEntries?.filter(
-      e => e.fieldId === form.fieldId || e.fieldNumber === form.fieldNumber,
+      entry => entry.fieldId === form.fieldId || entry.fieldNumber === form.fieldNumber,
     ) ?? [];
-    const seen = new Set<string>();
-    entries.forEach(e => e.variety && seen.add(e.variety));
-    return [...seen];
-  }, [form.fieldId, form.fieldNumber, data.seedingEntries]);
+    return Array.from(new Set(entries.map(entry => entry.variety).filter(Boolean)));
+  }, [data.seedingEntries, form.fieldId, form.fieldNumber]);
 
-  function resetForm() {
-    setForm(emptyForm());
-    setEditId(null);
-    setActivePass(0);
-  }
+  const varietyOptions = useMemo(() => {
+    const options = new Set<string>(VARIETIES_BY_CROP.Potatoes ?? []);
+    fieldVarieties.forEach(variety => options.add(variety));
+    if (form.variety) options.add(form.variety);
+    return Array.from(options).sort((a, b) => a.localeCompare(b));
+  }, [fieldVarieties, form.variety]);
 
   function openNew() {
-    resetForm();
+    setEditingId(null);
+    setActiveCheckIndex(0);
+    setForm(emptyCheck());
     setShowForm(true);
   }
 
   function openEdit(check: PlanterCheck) {
+    setEditingId(check.id);
+    setActiveCheckIndex(0);
     setForm({
       fieldId: check.fieldId,
       fieldNumber: check.fieldNumber,
@@ -184,594 +188,508 @@ export default function PlanterChecks({ data, updateData }: Props) {
       planterName: check.planterName,
       targetSpacingInches: check.targetSpacingInches,
       toleranceInches: check.toleranceInches,
-      checks: hydratePasses(check.checks ?? []),
+      checks: createPasses(check.checks ?? [], check.rows ?? []),
       notes: check.notes,
     });
-    setEditId(check.id);
-    setActivePass(0);
     setShowForm(true);
   }
 
-  function handleFieldChange(fieldId: string) {
-    const field = data.fields.find(f => f.id === fieldId);
-    if (!field) return;
-    setForm(prev => ({ ...prev, fieldId, fieldNumber: field.fieldNumber, variety: '' }));
+  function handleFieldSelect(fieldId: string) {
+    const field = potatoFields.find(item => item.id === fieldId);
+    setForm(current => ({
+      ...current,
+      fieldId,
+      fieldNumber: field?.fieldNumber ?? '',
+      variety: field?.variety ?? current.variety,
+    }));
   }
 
-  function handleRowChange(
-    passIdx: number,
-    rowIdx: number,
-    key: keyof PlanterCheckRow,
-    value: string,
-  ) {
-    setForm(prev => {
-      const checks = prev.checks.map((pass, pi) => {
-        if (pi !== passIdx) return pass;
-        const rows = pass.rows.map((row, ri) => {
-          if (ri !== rowIdx) return row;
-          if (key === 'notes') return { ...row, notes: value };
-          const num = value === '' ? undefined : Number(value);
-          return { ...row, [key]: num };
+  function handleRowChange(rowNumber: number, key: keyof PlanterCheckRow, value: string) {
+    setForm(current => {
+      const checks = current.checks.map((check, index) => {
+        if (index !== activeCheckIndex) return check;
+
+        const rows = check.rows.map(row => {
+          if (row.rowNumber !== rowNumber) return row;
+
+          const numericValue = value === '' ? undefined : Number(value);
+          return { ...row, [key]: numericValue };
         });
-        return { ...pass, rows };
+
+        return { ...check, rows };
       });
-      return { ...prev, checks };
+
+      return { ...current, checks };
     });
   }
 
   function handleSave() {
     if (!form.fieldId || !form.date) return;
-    if (editId) {
-      const existing = data.planterChecks.find(c => c.id === editId);
-      updateData(prev => savePlanterCheck(prev, {
-        ...form,
-        id: editId,
-        createdAt: existing?.createdAt ?? new Date().toISOString(),
-      }));
-    } else {
-      updateData(prev => savePlanterCheck(prev, {
-        ...form,
-        id: generateId(),
-        createdAt: new Date().toISOString(),
-      }));
-    }
+
+    const now = new Date().toISOString();
+    const check: PlanterCheck = {
+      id: editingId ?? generateId(),
+      ...form,
+      checks: createPasses(form.checks),
+      rows: undefined,
+      createdAt: editingId
+        ? (data.planterChecks.find(entry => entry.id === editingId)?.createdAt ?? now)
+        : now,
+    };
+
+    updateData(prev => savePlanterCheck(prev, check));
     setShowForm(false);
-    resetForm();
   }
 
   function handleDelete(id: string) {
     if (!confirm('Delete this planter check?')) return;
     updateData(prev => deletePlanterCheck(prev, id));
+    setViewCheck(null);
   }
 
-  const currentPass = form.checks[activePass];
-
-  const passSummary = useMemo(
-    () => currentPass
-      ? summarisePass(currentPass, form.targetSpacingInches, form.toleranceInches)
-      : null,
-    [currentPass, form.targetSpacingInches, form.toleranceInches],
-  );
-
-  const overallSummary = useMemo(
-    () => summariseAll(form.checks, form.targetSpacingInches, form.toleranceInches),
-    [form.checks, form.targetSpacingInches, form.toleranceInches],
-  );
+  const activeCheck = form.checks[activeCheckIndex] ?? createPasses()[0];
+  const currentSummary = summarizeRows(activeCheck.rows, form.targetSpacingInches, form.toleranceInches);
+  const overallSummary = summarizeChecks(form.checks, form.targetSpacingInches, form.toleranceInches);
 
   return (
-    <div className="space-y-6">
-      {/* Sub-nav */}
-      <div className="flex gap-2 border-b border-gray-200 pb-0">
+    <div className="space-y-5">
+      <div className="inline-flex rounded-xl border border-green-200 bg-white p-1 shadow-sm">
         <NavLink
           to="/seeding"
           end
-          className={({ isActive }) =>
-            `px-4 py-2 text-sm font-medium border-b-2 -mb-px ${isActive ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`
-          }
+          className={({ isActive }) => `rounded-lg px-3 py-2 text-sm font-medium transition-colors ${isActive ? 'bg-green-700 text-white' : 'text-green-800 hover:bg-green-50'}`}
         >
           Seeding Records
         </NavLink>
         <NavLink
           to="/seeding/planter-checks"
-          className={({ isActive }) =>
-            `px-4 py-2 text-sm font-medium border-b-2 -mb-px ${isActive ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`
-          }
+          className={({ isActive }) => `rounded-lg px-3 py-2 text-sm font-medium transition-colors ${isActive ? 'bg-green-700 text-white' : 'text-green-800 hover:bg-green-50'}`}
         >
           Planter Checks
         </NavLink>
       </div>
 
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Ruler className="w-5 h-5 text-blue-600" />
-          <h2 className="text-xl font-semibold text-gray-800">Planter Checks</h2>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-green-900">Potato Planter Checks</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Record eight-row spacing checks and see planter accuracy across the full machine.</p>
         </div>
-        <button onClick={openNew} className="btn-primary flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          New Check
+        <button onClick={openNew} className="btn-primary">
+          <Plus className="h-4 w-4" /> New Planter Check
         </button>
       </div>
 
-      {/* Form */}
-      {showForm && (
-        <div className="card space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-gray-700">{editId ? 'Edit' : 'New'} Planter Check</h3>
-            <button
-              onClick={() => { setShowForm(false); resetForm(); }}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {/* Meta fields */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Field *</label>
-              <select
-                value={form.fieldId}
-                onChange={e => handleFieldChange(e.target.value)}
-                className="form-input"
-              >
-                <option value="">Select field</option>
-                {potatoFields.map(f => (
-                  <option key={f.id} value={f.id}>{fieldLabel(f)}</option>
-                ))}
-              </select>
+      <div className="grid gap-3 md:grid-cols-4">
+        <div className="card">
+          <div className="text-xs uppercase tracking-wide text-gray-500">Checks Logged</div>
+          <div className="mt-2 text-2xl font-bold text-green-900">{filteredChecks.length}</div>
+        </div>
+        <div className="card">
+          <div className="text-xs uppercase tracking-wide text-gray-500">Potato Fields</div>
+          <div className="mt-2 text-2xl font-bold text-green-900">{potatoFields.length}</div>
+        </div>
+        <div className="card md:col-span-2 border border-green-100 bg-green-50/70">
+          <div className="flex items-start gap-3">
+            <Settings2 className="h-5 w-5 text-green-700 mt-0.5" />
+            <div className="text-sm text-green-900">
+              Use this for pre-start or in-field potato planter checks. Run up to three checks per field and track doubles/skips by row so problem units stand out quickly.
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Variety</label>
-              {fieldVarieties.length > 0 ? (
-                <select
-                  value={form.variety}
-                  onChange={e => setForm(p => ({ ...p, variety: e.target.value }))}
-                  className="form-input"
-                >
-                  <option value="">Select variety</option>
-                  {fieldVarieties.map(v => <option key={v} value={v}>{v}</option>)}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  value={form.variety}
-                  onChange={e => setForm(p => ({ ...p, variety: e.target.value }))}
-                  className="form-input"
-                  placeholder="e.g. Russet Burbank"
-                />
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
-              <input
-                type="date"
-                value={form.date}
-                onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
-                className="form-input"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Planter</label>
-              <input
-                type="text"
-                value={form.planterName}
-                onChange={e => setForm(p => ({ ...p, planterName: e.target.value }))}
-                className="form-input"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Target Spacing (in)</label>
-              <input
-                type="number"
-                step="0.5"
-                min="1"
-                value={form.targetSpacingInches}
-                onChange={e => setForm(p => ({ ...p, targetSpacingInches: Number(e.target.value) }))}
-                className="form-input"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tolerance  (in)</label>
-              <input
-                type="number"
-                step="0.5"
-                min="0"
-                value={form.toleranceInches}
-                onChange={e => setForm(p => ({ ...p, toleranceInches: Number(e.target.value) }))}
-                className="form-input"
-              />
-            </div>
-          </div>
-
-          {/* Pass tabs */}
-          <div>
-            <div className="flex gap-1 mb-0">
-              {form.checks.map((pass, idx) => {
-                const s = summarisePass(pass, form.targetSpacingInches, form.toleranceInches);
-                const hasData = s.measured > 0;
-                return (
-                  <button
-                    key={pass.checkNumber}
-                    type="button"
-                    onClick={() => setActivePass(idx)}
-                    className={`px-4 py-2 rounded-t text-sm font-medium border-t border-l border-r ${
-                      activePass === idx
-                        ? 'bg-white border-gray-300 text-blue-600 -mb-px z-10 relative'
-                        : 'bg-gray-100 border-transparent text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    Check {pass.checkNumber}
-                    {hasData && (
-                      <span className={`ml-2 text-xs font-semibold ${tone(s.accuracyScore)}`}>
-                        {s.accuracyScore}%
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="border border-gray-300 rounded-b rounded-tr p-3 flex gap-4">
-              {/* Row table */}
-              <div className="flex-1 overflow-x-auto">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50 text-gray-600">
-                      <th className="px-2 py-2 text-left w-10">Row</th>
-                      <th className="px-2 py-2 text-left">Spacing (in)</th>
-                      <th className="px-2 py-2 text-left">Dev.</th>
-                      <th className="px-2 py-2 text-left">Status</th>
-                      <th className="px-2 py-2 text-left">Doubles</th>
-                      <th className="px-2 py-2 text-left">Skips</th>
-                      <th className="px-2 py-2 text-left">Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentPass?.rows.map((row, ri) => {
-                      const spacing = row.spacingInches;
-                      const dev = spacing != null ? spacing - form.targetSpacingInches : null;
-                      const inTol = dev != null && Math.abs(dev) <= form.toleranceInches;
-                      return (
-                        <tr key={row.rowNumber} className="border-t border-gray-100">
-                          <td className="px-2 py-1 text-gray-500 font-medium">{row.rowNumber}</td>
-                          <td className="px-2 py-1">
-                            <input
-                              type="number"
-                              step="0.25"
-                              min="0"
-                              value={row.spacingInches ?? ''}
-                              onChange={e => handleRowChange(activePass, ri, 'spacingInches', e.target.value)}
-                              className="form-input py-0.5 w-20"
-                            />
-                          </td>
-                          <td className={`px-2 py-1 font-mono text-xs ${dev != null ? (inTol ? 'text-green-600' : 'text-red-600') : 'text-gray-300'}`}>
-                            {dev != null ? (dev >= 0 ? '+' : '') + dev.toFixed(2) : ''}
-                          </td>
-                          <td className="px-2 py-1">
-                            {spacing == null ? (
-                              <span className="text-gray-300"></span>
-                            ) : inTol ? (
-                              <CheckCircle2 className="w-4 h-4 text-green-500" />
-                            ) : (
-                              <AlertCircle className="w-4 h-4 text-red-500" />
-                            )}
-                          </td>
-                          <td className="px-2 py-1">
-                            <input
-                              type="number"
-                              min="0"
-                              value={row.doublesCount ?? ''}
-                              onChange={e => handleRowChange(activePass, ri, 'doublesCount', e.target.value)}
-                              className="form-input py-0.5 w-16"
-                            />
-                          </td>
-                          <td className="px-2 py-1">
-                            <input
-                              type="number"
-                              min="0"
-                              value={row.skipsCount ?? ''}
-                              onChange={e => handleRowChange(activePass, ri, 'skipsCount', e.target.value)}
-                              className="form-input py-0.5 w-16"
-                            />
-                          </td>
-                          <td className="px-2 py-1">
-                            <input
-                              type="text"
-                              value={row.notes ?? ''}
-                              onChange={e => handleRowChange(activePass, ri, 'notes', e.target.value)}
-                              className="form-input py-0.5 w-28"
-                              placeholder="optional"
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Live summary sidebar */}
-              {passSummary && passSummary.measured > 0 && (
-                <div className="w-44 shrink-0 bg-gray-50 rounded p-3 space-y-2 text-sm self-start">
-                  <p className="font-semibold text-gray-700 text-xs uppercase tracking-wide">
-                    Check {currentPass?.checkNumber}
-                  </p>
-                  <div>
-                    <span className="text-xs text-gray-500">Accuracy</span>
-                    <p className={`text-2xl font-bold ${tone(passSummary.accuracyScore)}`}>
-                      {passSummary.accuracyScore}%
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
-                    <span className="text-gray-500">Measured</span>
-                    <span>{passSummary.measured} / 8</span>
-                    <span className="text-gray-500">In tolerance</span>
-                    <span>{passSummary.inTolerance}</span>
-                    {passSummary.avgSpacing != null && (
-                      <>
-                        <span className="text-gray-500">Avg spacing</span>
-                        <span>{passSummary.avgSpacing.toFixed(2)}&quot;</span>
-                      </>
-                    )}
-                    {passSummary.worstRowNum != null && (
-                      <>
-                        <span className="text-gray-500">Worst row</span>
-                        <span>#{passSummary.worstRowNum}</span>
-                      </>
-                    )}
-                    <span className="text-gray-500">Doubles</span>
-                    <span className={passSummary.totalDoubles > 0 ? 'text-yellow-600 font-semibold' : ''}>
-                      {passSummary.totalDoubles}
-                    </span>
-                    <span className="text-gray-500">Skips</span>
-                    <span className={passSummary.totalSkips > 0 ? 'text-red-600 font-semibold' : ''}>
-                      {passSummary.totalSkips}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Overall summary bar */}
-          {overallSummary.measured > 0 && (
-            <div className="flex flex-wrap items-center gap-4 rounded bg-blue-50 px-4 py-2 text-sm">
-              <span className="font-medium text-blue-700">Overall (all checks)</span>
-              <span className={`font-bold ${tone(overallSummary.accuracyScore)}`}>
-                {overallSummary.accuracyScore}% accuracy
-              </span>
-              <span className="text-gray-600">{overallSummary.measured} spacings measured</span>
-              {overallSummary.totalDoubles > 0 && (
-                <span className="text-yellow-700 font-medium">{overallSummary.totalDoubles} doubles</span>
-              )}
-              {overallSummary.totalSkips > 0 && (
-                <span className="text-red-700 font-medium">{overallSummary.totalSkips} skips</span>
-              )}
-            </div>
-          )}
-
-          {/* General notes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">General Notes</label>
-            <textarea
-              rows={2}
-              value={form.notes}
-              onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
-              className="form-input"
-              placeholder="Any additional notes"
-            />
-          </div>
-
-          <div className="flex gap-3 justify-end">
-            <button
-              type="button"
-              onClick={() => { setShowForm(false); resetForm(); }}
-              className="btn-secondary"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={!form.fieldId || !form.date}
-              className="btn-primary"
-            >
-              {editId ? 'Update' : 'Save'} Check
-            </button>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* List */}
-      {data.planterChecks.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
-          <Ruler className="w-10 h-10 mx-auto mb-2 opacity-40" />
-          <p>No planter checks recorded yet.</p>
+      {filteredChecks.length === 0 ? (
+        <div className="card text-center py-12 text-gray-400">
+          No planter checks yet. Add one before or during potato planting to compare all 8 rows side by side.
         </div>
       ) : (
         <div className="space-y-3">
-          {[...data.planterChecks]
-            .sort((a, b) => b.date.localeCompare(a.date))
-            .map(check => {
-              const overall = summariseAll(
-                check.checks ?? [],
-                check.targetSpacingInches,
-                check.toleranceInches,
-              );
-              return (
-                <div key={check.id} className="card flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <span className="font-semibold text-gray-800">
-                        Field {check.fieldNumber}
-                      </span>
-                      {check.variety && (
-                        <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                          {check.variety}
-                        </span>
-                      )}
-                      <span className="text-sm text-gray-500">{check.date}</span>
-                      <span className="text-xs text-gray-400">{check.planterName}</span>
+          {filteredChecks.map(check => {
+            const checks = createPasses(check.checks ?? [], check.rows ?? []);
+            const summary = summarizeChecks(checks, check.targetSpacingInches, check.toleranceInches);
+            const checksWithData = checks.filter(c => summarizeRows(c.rows, check.targetSpacingInches, check.toleranceInches).measuredCount > 0).length;
+
+            return (
+              <div key={check.id} className="card hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <span className="font-semibold text-green-900">Field {check.fieldNumber}</span>
+                      <span className="rounded bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800">Potatoes</span>
+                      {check.variety && <span className="text-xs text-gray-500">{check.variety}</span>}
                     </div>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {(check.checks ?? []).map(pass => {
-                        const s = summarisePass(pass, check.targetSpacingInches, check.toleranceInches);
-                        if (s.measured === 0) return null;
-                        return (
-                          <span
-                            key={pass.checkNumber}
-                            className="inline-flex items-center gap-1 text-xs bg-gray-100 rounded px-2 py-0.5"
-                          >
-                            <span className="text-gray-600">Check {pass.checkNumber}</span>
-                            <span className={`font-semibold ${tone(s.accuracyScore)}`}>
-                              {s.accuracyScore}%
-                            </span>
-                            {s.totalDoubles > 0 && (
-                              <span className="text-yellow-600">D:{s.totalDoubles}</span>
-                            )}
-                            {s.totalSkips > 0 && (
-                              <span className="text-red-600">S:{s.totalSkips}</span>
-                            )}
-                          </span>
-                        );
-                      })}
-                      {overall.measured > 0 && (
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold bg-blue-100 text-blue-700 rounded px-2 py-0.5">
-                          Overall {overall.accuracyScore}%
-                        </span>
-                      )}
+                    <div className="text-xs text-gray-500 space-x-3">
+                      <span>Date: {check.date}</span>
+                      <span>{check.planterName}</span>
+                      <span>Target: {check.targetSpacingInches.toFixed(1)}&quot;</span>
+                      <span>Tolerance: +/- {check.toleranceInches.toFixed(1)}&quot;</span>
                     </div>
-                    {check.notes && (
-                      <p className="mt-1 text-xs text-gray-500 truncate">{check.notes}</p>
-                    )}
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                      <div className={`rounded-lg border px-3 py-2 ${accuracyTone(summary.accuracyScore)}`}>
+                        <div className="text-xs uppercase tracking-wide">Accuracy</div>
+                        <div className="text-lg font-bold">{summary.accuracyScore.toFixed(1)}%</div>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 px-3 py-2">
+                        <div className="text-xs uppercase tracking-wide text-gray-500">Avg Spacing</div>
+                        <div className="text-lg font-bold text-gray-900">{summary.measuredCount > 0 ? `${summary.avgSpacing.toFixed(2)}\"` : '—'}</div>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 px-3 py-2">
+                        <div className="text-xs uppercase tracking-wide text-gray-500">Rows In Tolerance</div>
+                        <div className="text-lg font-bold text-gray-900">{summary.withinToleranceCount}/24</div>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 px-3 py-2">
+                        <div className="text-xs uppercase tracking-wide text-gray-500">Checks Used</div>
+                        <div className="text-lg font-bold text-gray-900">{checksWithData}/3</div>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 px-3 py-2">
+                        <div className="text-xs uppercase tracking-wide text-gray-500">Doubles / Skips</div>
+                        <div className="text-lg font-bold text-gray-900">{summary.totalDoubles} / {summary.totalSkips}</div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => setViewCheck(check)}
-                      className="p-1 text-gray-400 hover:text-blue-500"
-                      title="View"
-                    >
-                      <Eye className="w-4 h-4" />
+                  <div className="flex shrink-0 gap-2">
+                    <button onClick={() => setViewCheck(check)} className="btn-secondary text-xs py-1.5 px-2.5">
+                      <Eye className="h-3.5 w-3.5" /> View
                     </button>
-                    <button
-                      onClick={() => openEdit(check)}
-                      className="p-1 text-gray-400 hover:text-blue-600"
-                      title="Edit"
-                    >
-                      <Ruler className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(check.id)}
-                      className="p-1 text-gray-400 hover:text-red-500"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" />
+                    <button onClick={() => openEdit(check)} className="btn-secondary text-xs py-1.5 px-2.5">Edit</button>
+                    <button onClick={() => handleDelete(check.id)} className="rounded-md p-1.5 text-red-500 hover:bg-red-50">
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* View modal */}
-      {viewCheck && (
-        <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl my-8 p-6 space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">
-                Field {viewCheck.fieldNumber}  {viewCheck.date}
-              </h3>
-              <button
-                onClick={() => setViewCheck(null)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-5 h-5" />
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-3 sm:p-4">
+          <div className="w-full max-w-4xl max-h-[92vh] overflow-y-auto rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b p-4 sm:p-5">
+              <h2 className="flex items-center gap-2 text-lg font-semibold">
+                <Ruler className="h-5 w-5 text-green-600" />
+                {editingId ? 'Edit Planter Check' : 'New Planter Check'}
+              </h2>
+              <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="text-sm text-gray-500 flex gap-4 flex-wrap">
-              {viewCheck.variety && (
-                <span>Variety: <strong>{viewCheck.variety}</strong></span>
+
+            <div className="space-y-4 p-4 sm:p-5">
+              {potatoFields.length === 0 && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  Add a potato field in Fields before creating planter checks.
+                </div>
               )}
-              <span>Planter: <strong>{viewCheck.planterName}</strong></span>
-              <span>Target: <strong>{viewCheck.targetSpacingInches}&quot;</strong></span>
-              <span>Tolerance: <strong>{viewCheck.toleranceInches}&quot;</strong></span>
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div>
+                  <label className="form-label">Field</label>
+                  <select className="form-input" value={form.fieldId} onChange={e => handleFieldSelect(e.target.value)}>
+                    <option value="">Select potato field...</option>
+                    {potatoFields.map(field => (
+                      <option key={field.id} value={field.id}>{fieldLabel(field)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Date</label>
+                  <input type="date" className="form-input" value={form.date} onChange={e => setForm(current => ({ ...current, date: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="form-label">Planter</label>
+                  <input className="form-input" value={form.planterName} onChange={e => setForm(current => ({ ...current, planterName: e.target.value }))} placeholder="8 Row Spudnik" />
+                </div>
+                <div>
+                  <label className="form-label">Variety</label>
+                  <select className="form-input" value={form.variety} onChange={e => setForm(current => ({ ...current, variety: e.target.value }))}>
+                    <option value="">Select variety...</option>
+                    {varietyOptions.map(variety => <option key={variety} value={variety}>{variety}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Target Spacing (inches)</label>
+                  <input type="number" step="0.1" className="form-input" value={form.targetSpacingInches || ''} onChange={e => setForm(current => ({ ...current, targetSpacingInches: Number(e.target.value) || 0 }))} />
+                </div>
+                <div>
+                  <label className="form-label">Tolerance (+/- inches)</label>
+                  <input type="number" step="0.1" className="form-input" value={form.toleranceInches || ''} onChange={e => setForm(current => ({ ...current, toleranceInches: Number(e.target.value) || 0 }))} />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-green-200 bg-green-50/70 p-2">
+                <div className="flex flex-wrap gap-2">
+                  {form.checks.map((check, index) => {
+                    const summary = summarizeRows(check.rows, form.targetSpacingInches, form.toleranceInches);
+                    const active = index === activeCheckIndex;
+                    return (
+                      <button
+                        key={check.checkNumber}
+                        type="button"
+                        onClick={() => setActiveCheckIndex(index)}
+                        className={`rounded-lg border px-2.5 py-1.5 text-xs sm:text-sm font-medium transition-colors ${
+                          active
+                            ? 'border-green-700 bg-green-700 text-white'
+                            : 'border-green-200 bg-white text-green-800 hover:bg-green-100'
+                        }`}
+                      >
+                        Check {check.checkNumber}
+                        {summary.measuredCount > 0 && (
+                          <span className={`ml-2 text-xs ${active ? 'text-green-100' : 'text-green-700'}`}>
+                            {summary.accuracyScore.toFixed(1)}%
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_280px]">
+                <div>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-gray-800">Row Measurements - Check {activeCheck.checkNumber}</h3>
+                    <div className="text-xs text-gray-500">Enter spacing, doubles, and skips for each planter row.</div>
+                  </div>
+                  <div className="overflow-x-auto rounded-xl border border-gray-200">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b bg-green-50 text-left text-gray-700">
+                          <th className="px-3 py-2">Row</th>
+                          <th className="px-3 py-2">Measured Spacing</th>
+                          <th className="px-3 py-2">Deviation</th>
+                          <th className="px-3 py-2">Status</th>
+                          <th className="px-3 py-2">Doubles</th>
+                          <th className="px-3 py-2">Skips</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activeCheck.rows.map(row => {
+                          const deviation = typeof row.spacingInches === 'number'
+                            ? row.spacingInches - form.targetSpacingInches
+                            : undefined;
+                          const withinTolerance = typeof deviation === 'number' && Math.abs(deviation) <= form.toleranceInches;
+
+                          return (
+                            <tr key={row.rowNumber} className="border-b border-gray-100 last:border-b-0">
+                              <td className="px-3 py-2 font-medium text-green-900">{row.rowNumber}</td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="number"
+                                  step="0.1"
+                                  className="form-input w-20 sm:w-24"
+                                  value={row.spacingInches ?? ''}
+                                  onChange={e => handleRowChange(row.rowNumber, 'spacingInches', e.target.value)}
+                                  placeholder="0.0"
+                                />
+                              </td>
+                              <td className="px-3 py-2 text-gray-600">
+                                {typeof deviation === 'number' ? `${deviation > 0 ? '+' : ''}${deviation.toFixed(2)}\"` : '—'}
+                              </td>
+                              <td className="px-3 py-2">
+                                {typeof deviation !== 'number' ? (
+                                  <span className="text-xs text-gray-400">No reading</span>
+                                ) : withinTolerance ? (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700">
+                                    <CheckCircle2 className="h-3.5 w-3.5" /> In tolerance
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-1 text-xs font-medium text-red-700">
+                                    <AlertCircle className="h-3.5 w-3.5" /> Adjust
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  className="form-input w-16 sm:w-20"
+                                  value={row.doublesCount ?? ''}
+                                  onChange={e => handleRowChange(row.rowNumber, 'doublesCount', e.target.value)}
+                                  placeholder="0"
+                                />
+                              </td>
+                              <td className="px-3 py-2">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  className="form-input w-16 sm:w-20"
+                                  value={row.skipsCount ?? ''}
+                                  onChange={e => handleRowChange(row.rowNumber, 'skipsCount', e.target.value)}
+                                  placeholder="0"
+                                />
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className={`rounded-xl border p-4 ${accuracyTone(overallSummary.accuracyScore)}`}>
+                    <div className="text-xs uppercase tracking-wide">Whole Planter Accuracy</div>
+                    <div className="mt-2 text-3xl font-bold">{overallSummary.accuracyScore.toFixed(1)}%</div>
+                    <p className="mt-2 text-xs opacity-80">Overall spacing performance across Check 1, Check 2, and Check 3.</p>
+                  </div>
+
+                  <div className={`rounded-xl border p-4 ${accuracyTone(currentSummary.accuracyScore)}`}>
+                    <div className="text-xs uppercase tracking-wide">Check {activeCheck.checkNumber} Accuracy</div>
+                    <div className="mt-2 text-2xl font-bold">{currentSummary.accuracyScore.toFixed(1)}%</div>
+                    <p className="mt-2 text-xs opacity-80">Current tab accuracy for this pass only.</p>
+                  </div>
+
+                  <div className="card space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Measured rows</span>
+                      <span className="font-semibold text-gray-900">{currentSummary.measuredCount}/8</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Avg spacing</span>
+                      <span className="font-semibold text-gray-900">{currentSummary.measuredCount > 0 ? `${currentSummary.avgSpacing.toFixed(2)}\"` : '—'}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Avg deviation</span>
+                      <span className="font-semibold text-gray-900">{currentSummary.measuredCount > 0 ? `${currentSummary.avgDeviation.toFixed(2)}\"` : '—'}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Rows in tolerance</span>
+                      <span className="font-semibold text-gray-900">{currentSummary.withinToleranceCount}/8</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Worst row</span>
+                      <span className="font-semibold text-gray-900">{currentSummary.worstRow ? `Row ${currentSummary.worstRow.rowNumber}` : '—'}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Doubles</span>
+                      <span className="font-semibold text-gray-900">{currentSummary.totalDoubles}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Skips</span>
+                      <span className="font-semibold text-gray-900">{currentSummary.totalSkips}</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-gray-200 p-4">
+                    <div className="text-xs uppercase tracking-wide text-gray-600">Overall Row Stats</div>
+                    <div className="mt-2 text-xs text-gray-700">{overallSummary.withinToleranceCount}/24 rows in tolerance</div>
+                    <div className="mt-1 text-xs text-gray-700">Doubles: {overallSummary.totalDoubles} | Skips: {overallSummary.totalSkips}</div>
+                  </div>
+
+                  <div>
+                    <label className="form-label">Notes</label>
+                    <textarea className="form-input resize-none" rows={6} value={form.notes} onChange={e => setForm(current => ({ ...current, notes: e.target.value }))} placeholder="What changed, which rows were adjusted, chain/sprocket settings, depth changes..." />
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {(viewCheck.checks ?? []).map(pass => {
-              const s = summarisePass(pass, viewCheck.targetSpacingInches, viewCheck.toleranceInches);
-              return (
-                <div key={pass.checkNumber}>
-                  <div className="flex items-center gap-3 mb-2 flex-wrap">
-                    <h4 className="font-semibold text-gray-700">Check {pass.checkNumber}</h4>
-                    {s.measured > 0 && (
-                      <>
-                        <span className={`font-bold text-sm ${tone(s.accuracyScore)}`}>
-                          {s.accuracyScore}% accuracy
-                        </span>
-                        {s.totalDoubles > 0 && (
-                          <span className="text-xs text-yellow-600">Doubles: {s.totalDoubles}</span>
-                        )}
-                        {s.totalSkips > 0 && (
-                          <span className="text-xs text-red-600">Skips: {s.totalSkips}</span>
-                        )}
-                      </>
-                    )}
-                  </div>
-                  <table className="w-full text-sm border-collapse">
-                    <thead>
-                      <tr className="bg-gray-50 text-gray-600">
-                        <th className="px-2 py-1 text-left">Row</th>
-                        <th className="px-2 py-1 text-left">Spacing</th>
-                        <th className="px-2 py-1 text-left">Dev.</th>
-                        <th className="px-2 py-1 text-left">Status</th>
-                        <th className="px-2 py-1 text-left">Doubles</th>
-                        <th className="px-2 py-1 text-left">Skips</th>
-                        <th className="px-2 py-1 text-left">Notes</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pass.rows.map(row => {
-                        const spacing = row.spacingInches;
-                        const dev = spacing != null ? spacing - viewCheck.targetSpacingInches : null;
-                        const inTol = dev != null && Math.abs(dev) <= viewCheck.toleranceInches;
-                        return (
-                          <tr key={row.rowNumber} className="border-t border-gray-100">
-                            <td className="px-2 py-1 text-gray-500">{row.rowNumber}</td>
-                            <td className="px-2 py-1">{spacing != null ? `${spacing}"` : ''}</td>
-                            <td className={`px-2 py-1 font-mono text-xs ${dev != null ? (inTol ? 'text-green-600' : 'text-red-600') : 'text-gray-300'}`}>
-                              {dev != null ? (dev >= 0 ? '+' : '') + dev.toFixed(2) : ''}
-                            </td>
-                            <td className="px-2 py-1">
-                              {spacing == null ? (
-                                <span className="text-gray-300"></span>
-                              ) : inTol ? (
-                                <CheckCircle2 className="w-4 h-4 text-green-500" />
-                              ) : (
-                                <AlertCircle className="w-4 h-4 text-red-500" />
-                              )}
-                            </td>
-                            <td className="px-2 py-1 text-gray-700">{row.doublesCount ?? ''}</td>
-                            <td className="px-2 py-1 text-gray-700">{row.skipsCount ?? ''}</td>
-                            <td className="px-2 py-1 text-gray-500">{row.notes || ''}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              );
-            })}
+            <div className="flex justify-end gap-3 rounded-b-xl border-t bg-gray-50 p-4 sm:p-5">
+              <button onClick={() => setShowForm(false)} className="btn-secondary">Cancel</button>
+              <button onClick={handleSave} className="btn-primary" disabled={!form.fieldId || !form.date || potatoFields.length === 0}>
+                {editingId ? 'Save Changes' : 'Save Check'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-            {viewCheck.notes && (
-              <p className="text-sm text-gray-600 bg-gray-50 rounded p-3">{viewCheck.notes}</p>
-            )}
+      {viewCheck && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black bg-opacity-50 p-4">
+          <div className="my-4 w-full max-w-3xl rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b p-5">
+              <h2 className="text-lg font-semibold">Planter Check - Field {viewCheck.fieldNumber}</h2>
+              <button onClick={() => setViewCheck(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4 p-5 text-sm">
+              {(() => {
+                const checks = createPasses(viewCheck.checks ?? [], viewCheck.rows ?? []);
+                const summary = summarizeChecks(checks, viewCheck.targetSpacingInches, viewCheck.toleranceInches);
+                return (
+                  <>
+                    <div className="grid gap-3 md:grid-cols-4">
+                      <div className="rounded-lg border border-gray-200 px-4 py-3">
+                        <div className="text-xs uppercase tracking-wide text-gray-500">Date</div>
+                        <div className="mt-1 font-semibold text-gray-900">{viewCheck.date}</div>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 px-4 py-3">
+                        <div className="text-xs uppercase tracking-wide text-gray-500">Planter</div>
+                        <div className="mt-1 font-semibold text-gray-900">{viewCheck.planterName}</div>
+                      </div>
+                      <div className={`rounded-lg border px-4 py-3 ${accuracyTone(summary.accuracyScore)}`}>
+                        <div className="text-xs uppercase tracking-wide">Overall Accuracy</div>
+                        <div className="mt-1 font-semibold">{summary.accuracyScore.toFixed(1)}%</div>
+                      </div>
+                      <div className="rounded-lg border border-gray-200 px-4 py-3">
+                        <div className="text-xs uppercase tracking-wide text-gray-500">Doubles / Skips</div>
+                        <div className="mt-1 font-semibold text-gray-900">{summary.totalDoubles} / {summary.totalSkips}</div>
+                      </div>
+                    </div>
+
+                    {checks.map(checkPass => {
+                      const checkSummary = summarizeRows(checkPass.rows, viewCheck.targetSpacingInches, viewCheck.toleranceInches);
+                      return (
+                        <div key={checkPass.checkNumber} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-semibold text-gray-700">Check {checkPass.checkNumber}</h3>
+                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium border ${accuracyTone(checkSummary.accuracyScore)}`}>
+                              {checkSummary.accuracyScore.toFixed(1)}%
+                            </span>
+                          </div>
+
+                          <div className="overflow-x-auto rounded-xl border border-gray-200">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b bg-green-50 text-left text-gray-700">
+                                  <th className="px-3 py-2">Row</th>
+                                  <th className="px-3 py-2">Measured</th>
+                                  <th className="px-3 py-2">Deviation</th>
+                                  <th className="px-3 py-2">Doubles</th>
+                                  <th className="px-3 py-2">Skips</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {checkPass.rows.map(row => {
+                                  const deviation = typeof row.spacingInches === 'number'
+                                    ? row.spacingInches - viewCheck.targetSpacingInches
+                                    : undefined;
+                                  return (
+                                    <tr key={row.rowNumber} className="border-b border-gray-100 last:border-b-0">
+                                      <td className="px-3 py-2 font-medium text-green-900">{row.rowNumber}</td>
+                                      <td className="px-3 py-2">{typeof row.spacingInches === 'number' ? `${row.spacingInches.toFixed(2)}\"` : '—'}</td>
+                                      <td className="px-3 py-2">{typeof deviation === 'number' ? `${deviation > 0 ? '+' : ''}${deviation.toFixed(2)}\"` : '—'}</td>
+                                      <td className="px-3 py-2">{row.doublesCount ?? 0}</td>
+                                      <td className="px-3 py-2">{row.skipsCount ?? 0}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {viewCheck.notes && (
+                      <div>
+                        <h3 className="mb-1 text-sm font-semibold text-gray-700">Notes</h3>
+                        <p className="rounded-lg bg-gray-50 p-3 text-gray-600">{viewCheck.notes}</p>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+            <div className="flex justify-end gap-3 border-t bg-gray-50 p-5">
+              <button onClick={() => handleDelete(viewCheck.id)} className="btn-danger">
+                <Trash2 className="h-4 w-4" /> Delete
+              </button>
+              <button onClick={() => { openEdit(viewCheck); setViewCheck(null); }} className="btn-primary">Edit</button>
+            </div>
           </div>
         </div>
       )}
