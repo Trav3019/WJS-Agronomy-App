@@ -37,8 +37,8 @@ export default function Layout({ data, activeSeason, onSeasonChange, seasonOptio
     <div className="flex flex-col min-h-screen bg-green-50">
       {/* Header */}
       <header className="bg-green-800 text-white shadow-lg sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between gap-3 min-h-14 py-2">
+        <div className="max-w-7xl mx-auto px-4 relative">
+          <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 min-h-14 py-2">
             <div className="flex items-center gap-3 min-w-0">
               {showFarmLogo && (
                 <img
@@ -54,7 +54,7 @@ export default function Layout({ data, activeSeason, onSeasonChange, seasonOptio
                 <span className="text-green-400 text-xs sm:text-sm block truncate">WJ Siemens Farming co</span>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="absolute top-2 right-4 sm:static flex items-center gap-2 sm:w-auto">
               <label className="hidden sm:inline text-xs text-green-200">Season</label>
               <select
                 className="h-8 rounded-md bg-green-900 border border-green-600 text-sm px-2 text-white"
@@ -66,7 +66,7 @@ export default function Layout({ data, activeSeason, onSeasonChange, seasonOptio
                   <option key={year} value={year}>{year}</option>
                 ))}
               </select>
-              <button onClick={() => exportExcelData(data)} className="px-3 py-1.5 rounded-md bg-green-700 hover:bg-green-600 text-sm font-medium transition-colors">
+              <button onClick={() => exportExcelData(data)} className="hidden sm:inline-flex px-3 py-1.5 rounded-md bg-green-700 hover:bg-green-600 text-sm font-medium transition-colors">
                 Export Excel
               </button>
               <button onClick={() => exportFullDataJson(data)} className="hidden sm:inline-flex px-3 py-1.5 rounded-md bg-green-900 hover:bg-green-950 text-sm font-medium transition-colors">
@@ -103,7 +103,7 @@ export default function Layout({ data, activeSeason, onSeasonChange, seasonOptio
       </nav>
 
       {/* Nav - Mobile Hamburger */}
-      <div className="md:hidden bg-green-700 text-white shadow-md sticky top-14 z-40">
+      <div className="md:hidden bg-green-700/95 text-white shadow-md fixed top-14 left-0 right-0 z-40 backdrop-blur-sm">
         <div className="flex items-center px-4 py-3">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -140,7 +140,7 @@ export default function Layout({ data, activeSeason, onSeasonChange, seasonOptio
       </div>
 
       {/* Main content */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-3 sm:px-4 py-4 sm:py-6">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-3 sm:px-4 pt-[4.25rem] pb-4 sm:py-6 md:pt-4">
         <Outlet />
       </main>
 
