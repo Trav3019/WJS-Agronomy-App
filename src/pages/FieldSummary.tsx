@@ -4,6 +4,7 @@ import type {
   CropType,
   GeoLocation,
   HarvestReport,
+  PlanterCheck,
   PotatoYieldReport,
   ScoutingReport,
   SeedingEntry,
@@ -21,13 +22,14 @@ type OperationReport =
   | { kind: 'tillage'; data: TillageReport }
   | { kind: 'scouting'; data: ScoutingReport }
   | { kind: 'spray'; data: SprayApplication }
+  | { kind: 'planter-check'; data: PlanterCheck }
   | { kind: 'harvest'; data: HarvestReport }
   | { kind: 'storage-bin'; data: HarvestReport }
   | { kind: 'potato-yield'; data: PotatoYieldReport };
 
 interface FieldOperation {
   id: string;
-  type: 'Seeding Plan' | 'Seeding Record' | 'Tillage' | 'Scouting' | 'Spray' | 'Harvest' | 'Potato Yield' | 'Storage Bin';
+  type: 'Seeding Plan' | 'Seeding Record' | 'Tillage' | 'Scouting' | 'Spray' | 'Planter Check' | 'Harvest' | 'Potato Yield' | 'Storage Bin';
   date: string;
   detail: string;
   viewData: Array<{ label: string; value: string }>;
@@ -38,12 +40,36 @@ const OPERATION_ORDER: Record<FieldOperation['type'], number> = {
   'Seeding Plan': 1,
   Tillage: 2,
   'Seeding Record': 3,
-  Scouting: 4,
-  Spray: 5,
-  Harvest: 6,
-  'Storage Bin': 7,
-  'Potato Yield': 8,
+  'Planter Check': 4,
+  Scouting: 5,
+  Spray: 6,
+  Harvest: 7,
+  'Storage Bin': 8,
+  'Potato Yield': 9,
 };
+
+function summarizePlanterCheck(check: PlanterCheck): { accuracy: number; measured: number; inTolerance: number; doubles: number; skips: number } {
+  const checks = check.checks ?? [];
+  const rows = checks.flatMap(c => c.rows ?? []);
+  const measuredRows = rows.filter(row => typeof row.spacingInches === 'number' && Number.isFinite(row.spacingInches));
+  const inTolerance = measuredRows.filter(row => Math.abs((row.spacingInches ?? 0) - check.targetSpacingInches) <= check.toleranceInches).length;
+  const doubles = rows.reduce((sum, row) => sum + (row.doublesCount ?? 0), 0);
+  const skips = rows.reduce((sum, row) => sum + (row.skipsCount ?? 0), 0);
+  const avgDeviation = measuredRows.length > 0
+    ? measuredRows.reduce((sum, row) => sum + Math.abs((row.spacingInches ?? 0) - check.targetSpacingInches), 0) / measuredRows.length
+    : 0;
+  const accuracy = measuredRows.length > 0 && check.targetSpacingInches > 0
+    ? Math.max(0, 100 - (avgDeviation / check.targetSpacingInches) * 100)
+    : 0;
+
+  return {
+    accuracy,
+    measured: measuredRows.length,
+    inTolerance,
+    doubles,
+    skips,
+  };
+}
 
 function toDisplayLabel(value: string): string {
   const spaced = value.replace(/([A-Z])/g, ' $1').trim();
@@ -185,6 +211,32 @@ export default function FieldSummary({ data }: Props) {
           ],
           report: { kind: 'spray', data: a },
         })),
+      ...data.planterChecks
+        .filter(p => p.fieldId === field.id || p.fieldNumber === field.fieldNumber)
+        .map<FieldOperation>(p => {
+          const summary = summarizePlanterCheck(p);
+          return {
+            id: `planter-${p.id}`,
+            type: 'Planter Check',
+            date: p.date,
+            detail: `${summary.accuracy.toFixed(1)}% accuracy${p.variety ? ` - ${p.variety}` : ''}`,
+            viewData: [
+              { label: 'Date', value: p.date },
+              { label: 'Variety', value: p.variety || '-' },
+              { label: 'Planter', value: p.planterName || '-' },
+              { label: 'Target Spacing', value: `${p.targetSpacingInches} in` },
+              { label: 'Tolerance', value: `+/- ${p.toleranceInches} in` },
+              { label: 'Accuracy', value: `${summary.accuracy.toFixed(1)}%` },
+              { label: 'Measured Rows', value: `${summary.measured}` },
+              { label: 'Rows In Tolerance', value: `${summary.inTolerance}` },
+              { label: 'Doubles', value: `${summary.doubles}` },
+              { label: 'Skips', value: `${summary.skips}` },
+              { label: 'Checks Recorded', value: `${p.checks?.length ?? 0}` },
+              { label: 'Notes', value: p.notes || '-' },
+            ],
+            report: { kind: 'planter-check', data: p },
+          };
+        }),
       ...data.harvestReports
         .filter(h => h.fieldId === field.id)
         .map<FieldOperation>(h => ({
@@ -248,7 +300,7 @@ export default function FieldSummary({ data }: Props) {
     return { field, operations, seedingRecords };
   });
 
-  const filteredOperationsByField = operationsByField.filter(({ field, operations, seedingRecords }) => {
+  const filteredOperationsByField = operationsByField.filter(({ field }) => {
     if (fieldFilter && !field.fieldNumber.toLowerCase().includes(fieldFilter.toLowerCase())) return false;
     if (cropFilter && field.cropType !== cropFilter) return false;
     return true;
@@ -577,6 +629,41 @@ export default function FieldSummary({ data }: Props) {
                 </>
               )}
 
+              {selectedOperation.operation.report.kind === 'planter-check' && (
+                <>
+                  {(() => {
+                    const summary = summarizePlanterCheck(selectedOperation.operation.report.data);
+                    return (
+                      <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                          <div><span className="text-gray-500">Date:</span> <span className="font-medium">{selectedOperation.operation.report.data.date}</span></div>
+                          <div><span className="text-gray-500">Planter:</span> <span className="font-medium">{selectedOperation.operation.report.data.planterName || '-'}</span></div>
+                          <div><span className="text-gray-500">Variety:</span> <span className="font-medium">{selectedOperation.operation.report.data.variety || '-'}</span></div>
+                          <div><span className="text-gray-500">Checks Recorded:</span> <span className="font-medium">{selectedOperation.operation.report.data.checks?.length ?? 0}</span></div>
+                          <div><span className="text-gray-500">Target Spacing:</span> <span className="font-medium">{selectedOperation.operation.report.data.targetSpacingInches} in</span></div>
+                          <div><span className="text-gray-500">Tolerance:</span> <span className="font-medium">+/- {selectedOperation.operation.report.data.toleranceInches} in</span></div>
+                        </div>
+
+                        <div className="bg-green-50 rounded-xl p-4 border border-green-200 text-center">
+                          <div className="text-sm text-green-700 font-medium">Spacing Accuracy</div>
+                          <div className="text-3xl font-bold text-green-800 my-1">{summary.accuracy.toFixed(1)}%</div>
+                          <div className="text-sm text-green-700">
+                            Rows in tolerance: {summary.inTolerance}/{summary.measured || 0} | Doubles: {summary.doubles} | Skips: {summary.skips}
+                          </div>
+                        </div>
+
+                        {selectedOperation.operation.report.data.notes && (
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-1">Notes</h3>
+                            <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{selectedOperation.operation.report.data.notes}</p>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </>
+              )}
+
               {selectedOperation.operation.report.kind === 'harvest' && (
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -638,10 +725,14 @@ export default function FieldSummary({ data }: Props) {
 
               {selectedOperation.operation.report.kind === 'potato-yield' && (
                 <>
+                  {(() => {
+                    const yieldData = selectedOperation.operation.report.data as PotatoYieldReport;
+                    return (
+                      <>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                    <div><span className="text-gray-500">Date:</span> <span className="font-medium">{selectedOperation.operation.report.data.date}</span></div>
-                    <div><span className="text-gray-500">Type:</span> <span className="font-medium capitalize">{selectedOperation.operation.report.data.potatoType}</span></div>
-                    <div><span className="text-gray-500">Variety:</span> <span className="font-medium">{selectedOperation.operation.report.data.variety || '—'}</span></div>
+                    <div><span className="text-gray-500">Date:</span> <span className="font-medium">{yieldData.date}</span></div>
+                    <div><span className="text-gray-500">Type:</span> <span className="font-medium capitalize">{yieldData.potatoType}</span></div>
+                    <div><span className="text-gray-500">Variety:</span> <span className="font-medium">{yieldData.variety || '—'}</span></div>
                   </div>
 
                   <div>
@@ -657,13 +748,13 @@ export default function FieldSummary({ data }: Props) {
                           </tr>
                         </thead>
                         <tbody>
-                          {Object.keys(selectedOperation.operation.report.data.grades)
-                            .filter(grade => (selectedOperation.operation.report.data.grades[grade] ?? 0) > 0 || (selectedOperation.operation.report.data.gradeWeights[grade] ?? 0) > 0)
+                          {Object.keys(yieldData.grades)
+                            .filter(grade => (yieldData.grades[grade] ?? 0) > 0 || (yieldData.gradeWeights[grade] ?? 0) > 0)
                             .map(grade => {
-                              const count = selectedOperation.operation.report.data.grades[grade] ?? 0;
-                              const weight = selectedOperation.operation.report.data.gradeWeights[grade] ?? 0;
-                              const percent = selectedOperation.operation.report.data.totalTuberWeight > 0
-                                ? ((weight / selectedOperation.operation.report.data.totalTuberWeight) * 100).toFixed(1)
+                              const count = yieldData.grades[grade] ?? 0;
+                              const weight = yieldData.gradeWeights[grade] ?? 0;
+                              const percent = yieldData.totalTuberWeight > 0
+                                ? ((weight / yieldData.totalTuberWeight) * 100).toFixed(1)
                                 : '0.0';
 
                               return (
@@ -682,29 +773,32 @@ export default function FieldSummary({ data }: Props) {
 
                   <div className="bg-green-50 rounded-xl p-4 border border-green-200 text-center">
                     <div className="text-sm text-green-700 font-medium">Estimated Yield</div>
-                    <div className="text-3xl font-bold text-green-800 my-1">{selectedOperation.operation.report.data.estimatedYield.toFixed(1)} cwt/acre</div>
+                    <div className="text-3xl font-bold text-green-800 my-1">{yieldData.estimatedYield.toFixed(1)} cwt/acre</div>
                     <div className="text-sm text-green-600">
-                      Total Count: {selectedOperation.operation.report.data.totalTuberCount} | Sample Weight: {selectedOperation.operation.report.data.totalTuberWeight.toFixed(1)} lbs
+                      Total Count: {yieldData.totalTuberCount} | Sample Weight: {yieldData.totalTuberWeight.toFixed(1)} lbs
                     </div>
                   </div>
 
-                  {(selectedOperation.operation.report.data.photos?.length ?? 0) > 0 && (
+                  {(yieldData.photos?.length ?? 0) > 0 && (
                     <div>
-                      <h3 className="text-sm font-semibold text-gray-700 mb-2">Photos ({selectedOperation.operation.report.data.photos?.length ?? 0})</h3>
+                      <h3 className="text-sm font-semibold text-gray-700 mb-2">Photos ({yieldData.photos?.length ?? 0})</h3>
                       <div className="flex flex-wrap gap-2">
-                        {(selectedOperation.operation.report.data.photos ?? []).map((photo, index) => (
-                          <img key={`${selectedOperation.operation.report.data.id}-yield-photo-${index}`} src={photo} alt={`Yield photo ${index + 1}`} className="photo-thumbnail" />
+                        {(yieldData.photos ?? []).map((photo, index) => (
+                          <img key={`${yieldData.id}-yield-photo-${index}`} src={photo} alt={`Yield photo ${index + 1}`} className="photo-thumbnail" />
                         ))}
                       </div>
                     </div>
                   )}
 
-                  {selectedOperation.operation.report.data.notes && (
+                  {yieldData.notes && (
                     <div>
                       <h3 className="text-sm font-semibold text-gray-700 mb-1">Notes</h3>
-                      <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{selectedOperation.operation.report.data.notes}</p>
+                      <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{yieldData.notes}</p>
                     </div>
                   )}
+                      </>
+                    );
+                  })()}
                 </>
               )}
             </div>
