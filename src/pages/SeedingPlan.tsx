@@ -193,7 +193,7 @@ export default function SeedingPlan({ data, updateData }: Props) {
           <option value="">All Crops</option>
           {CROPS.map(c => <option key={c}>{c}</option>)}
         </select>
-        <div className="text-sm text-gray-500 self-center">{filtered.length} plan{filtered.length !== 1 ? 's' : ''}</div>
+        <div className="hidden sm:block text-sm text-gray-500 self-center">{filtered.length} plan{filtered.length !== 1 ? 's' : ''}</div>
       </div>
 
       {/* Entries list */}
