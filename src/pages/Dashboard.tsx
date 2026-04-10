@@ -1,11 +1,11 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { AppData, ScoutingReport, SprayApplication, SeedingEntry, PotatoYieldReport, TillageReport } from '../types';
+import type { AppData, ScoutingReport, SprayApplication, SeedingEntry, PotatoYieldReport, TillageReport, PlanterCheck } from '../types';
 import WeatherWidget from '../components/WeatherWidget';
 import SoilTemperatureWidget from '../components/SoilTemperatureWidget';
 import {
   ClipboardList, Syringe, Sprout, Wrench, CalendarDays, Wheat,
-  ChevronRight, X
+  ChevronRight, X, Ruler
 } from 'lucide-react';
 import { format, subDays, isWithinInterval, parseISO } from 'date-fns';
 
@@ -33,7 +33,7 @@ function toDisplayValue(value: unknown): string {
 }
 
 export default function Dashboard({ data }: Props) {
-  const [activityFilter, setActivityFilter] = useState<'all' | 'scouting' | 'spray' | 'seeding' | 'tillage' | 'harvest'>('all');
+  const [activityFilter, setActivityFilter] = useState<'all' | 'scouting' | 'spray' | 'seeding' | 'tillage' | 'planter-check' | 'harvest'>('all');
   const [weeklyPriorityFilter, setWeeklyPriorityFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
   const [weeklyCropFilter, setWeeklyCropFilter] = useState<string>('all');
   const [viewReport, setViewReport] = useState<ScoutingReport | null>(null);
@@ -41,22 +41,58 @@ export default function Dashboard({ data }: Props) {
   const [viewSeeding, setViewSeeding] = useState<SeedingEntry | null>(null);
   const [viewYield, setViewYield] = useState<PotatoYieldReport | null>(null);
   const [viewTillage, setViewTillage] = useState<TillageReport | null>(null);
+  const [viewPlanterCheck, setViewPlanterCheck] = useState<PlanterCheck | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
   const weekAgo = subDays(today, 6);
+
+  const planterCheckAccuracy = (check: PlanterCheck): number => {
+    const rows = (check.checks ?? []).flatMap(pass => pass.rows ?? []);
+    const measuredRows = rows.filter(row => typeof row.spacingInches === 'number' && Number.isFinite(row.spacingInches));
+    if (measuredRows.length === 0 || check.targetSpacingInches <= 0) return 0;
+
+    const avgDeviation = measuredRows.reduce(
+      (sum, row) => sum + Math.abs((row.spacingInches ?? 0) - check.targetSpacingInches),
+      0,
+    ) / measuredRows.length;
+
+    return Math.max(0, 100 - (avgDeviation / check.targetSpacingInches) * 100);
+  };
+
+  const planterCheckSummary = (check: PlanterCheck) => {
+    const checks = check.checks ?? [];
+    const rows = checks.flatMap(pass => pass.rows ?? []);
+    const measuredRows = rows.filter(row => typeof row.spacingInches === 'number' && Number.isFinite(row.spacingInches));
+    const inTolerance = measuredRows.filter(
+      row => Math.abs((row.spacingInches ?? 0) - check.targetSpacingInches) <= check.toleranceInches,
+    ).length;
+    const doubles = rows.reduce((sum, row) => sum + (row.doublesCount ?? 0), 0);
+    const skips = rows.reduce((sum, row) => sum + (row.skipsCount ?? 0), 0);
+
+    return {
+      checksRecorded: checks.length,
+      measured: measuredRows.length,
+      inTolerance,
+      doubles,
+      skips,
+      accuracy: planterCheckAccuracy(check),
+    };
+  };
 
   // Today's activity
   const todayScouting = data.scoutingReports.filter(r => r.date === todayStr);
   const todaySpray = data.sprayApplications.filter(a => a.appliedDate === todayStr || a.plannedDate === todayStr);
   const todaySeeding = data.seedingEntries.filter(e => e.seedingDate === todayStr);
   const todayTillage = data.tillageReports.filter(r => r.date === todayStr);
+  const todayPlanterChecks = data.planterChecks.filter(p => p.date === todayStr);
   const todayHarvest = data.harvestReports.filter(r => r.date === todayStr);
   const hasTodayActivity =
     todayScouting.length > 0
     || todaySpray.length > 0
     || todaySeeding.length > 0
     || todayTillage.length > 0
+    || todayPlanterChecks.length > 0
     || todayHarvest.length > 0;
 
   // Weekly scouting
@@ -232,6 +268,7 @@ export default function Dashboard({ data }: Props) {
                 <button onClick={() => setActivityFilter('spray')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'spray' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-600'}`}>Spray</button>
                 <button onClick={() => setActivityFilter('seeding')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'seeding' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'}`}>Seeding</button>
                 <button onClick={() => setActivityFilter('tillage')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'tillage' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>Tillage</button>
+                <button onClick={() => setActivityFilter('planter-check')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'planter-check' ? 'bg-lime-100 text-lime-800' : 'bg-gray-100 text-gray-600'}`}>Planter Checks</button>
                 <button onClick={() => setActivityFilter('harvest')} className={`text-xs sm:text-sm px-2.5 py-1.5 rounded-full whitespace-nowrap min-h-[34px] ${activityFilter === 'harvest' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-600'}`}>Harvest</button>
               </div>
             </div>
@@ -267,6 +304,15 @@ export default function Dashboard({ data }: Props) {
                       <span>Tillage on <span className="font-medium">Field {r.fieldNumber}</span> — {r.method}</span>
                     </button>
                   ))}
+                  {(activityFilter === 'all' || activityFilter === 'planter-check') && todayPlanterChecks.map(p => (
+                    <button key={p.id} onClick={() => setViewPlanterCheck(p)} className="w-full text-left flex items-center gap-2 text-sm bg-lime-50 rounded-lg p-2.5 hover:bg-lime-100 transition-colors">
+                      <Ruler className="h-4 w-4 text-lime-700" />
+                      <span>
+                        Planter check on <span className="font-medium">Field {p.fieldNumber}</span>
+                        {` — ${planterCheckAccuracy(p).toFixed(1)}% spacing accuracy`}
+                      </span>
+                    </button>
+                  ))}
                   {(activityFilter === 'all' || activityFilter === 'harvest') && todayHarvest.map(r => (
                     <Link key={r.id} to="/harvest" className="w-full text-left flex items-center gap-2 text-sm bg-orange-50 rounded-lg p-2.5 hover:bg-orange-100 transition-colors">
                       <Wheat className="h-4 w-4 text-orange-600" />
@@ -277,6 +323,7 @@ export default function Dashboard({ data }: Props) {
                     || (activityFilter === 'spray' && todaySpray.length === 0)
                     || (activityFilter === 'seeding' && todaySeeding.length === 0)
                     || (activityFilter === 'tillage' && todayTillage.length === 0)
+                    || (activityFilter === 'planter-check' && todayPlanterChecks.length === 0)
                     || (activityFilter === 'harvest' && todayHarvest.length === 0)) && (
                     <p className="text-sm text-gray-400 py-2">No matching activity for this filter today.</p>
                   )}
@@ -829,6 +876,70 @@ export default function Dashboard({ data }: Props) {
               <Link to="/tillage" onClick={() => setViewTillage(null)} className="text-sm text-green-700 hover:text-green-900 flex items-center gap-1 pt-2">
                 Open in Tillage <ChevronRight className="h-4 w-4" />
               </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewPlanterCheck && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-start justify-center z-50 p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-t-xl sm:rounded-xl shadow-xl w-full max-w-2xl my-0 sm:my-4 max-h-[92vh] overflow-hidden">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b">
+              <h2 className="text-base sm:text-lg font-semibold">Planter Check - Field {viewPlanterCheck.fieldNumber}</h2>
+              <button onClick={() => setViewPlanterCheck(null)} className="text-gray-400 hover:text-gray-600 p-1.5 -mr-1">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4 sm:p-5 space-y-4 text-sm overflow-y-auto max-h-[calc(92vh-72px)]">
+              {(() => {
+                const summary = planterCheckSummary(viewPlanterCheck);
+                return (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                      <div><span className="text-gray-500">Date:</span> <span className="font-medium">{viewPlanterCheck.date}</span></div>
+                      <div><span className="text-gray-500">Planter:</span> <span className="font-medium">{viewPlanterCheck.planterName || '-'}</span></div>
+                      <div><span className="text-gray-500">Variety:</span> <span className="font-medium">{viewPlanterCheck.variety || '-'}</span></div>
+                      <div><span className="text-gray-500">Checks Recorded:</span> <span className="font-medium">{summary.checksRecorded}</span></div>
+                      <div><span className="text-gray-500">Target Spacing:</span> <span className="font-medium">{viewPlanterCheck.targetSpacingInches} in</span></div>
+                      <div><span className="text-gray-500">Tolerance:</span> <span className="font-medium">+/- {viewPlanterCheck.toleranceInches} in</span></div>
+                    </div>
+
+                    <div className="bg-green-50 rounded-xl p-4 border border-green-200 text-center">
+                      <div className="text-sm text-green-700 font-medium">Spacing Accuracy</div>
+                      <div className="text-3xl sm:text-4xl font-bold text-green-800 my-1">{summary.accuracy.toFixed(1)}%</div>
+                      <div className="text-xs sm:text-sm text-green-700">
+                        Rows in tolerance: {summary.inTolerance}/{summary.measured || 0}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                        <div className="text-xs text-gray-500 uppercase tracking-wide">Measured Rows</div>
+                        <div className="text-lg font-semibold text-gray-800">{summary.measured}</div>
+                      </div>
+                      <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
+                        <div className="text-xs text-yellow-700 uppercase tracking-wide">Doubles</div>
+                        <div className="text-lg font-semibold text-yellow-800">{summary.doubles}</div>
+                      </div>
+                      <div className="bg-red-50 rounded-lg p-3 border border-red-200">
+                        <div className="text-xs text-red-700 uppercase tracking-wide">Skips</div>
+                        <div className="text-lg font-semibold text-red-800">{summary.skips}</div>
+                      </div>
+                    </div>
+
+                    {viewPlanterCheck.notes && (
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-700 mb-1">Notes</h3>
+                        <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{viewPlanterCheck.notes}</p>
+                      </div>
+                    )}
+
+                    <Link to="/seeding/planter-checks" onClick={() => setViewPlanterCheck(null)} className="text-sm text-green-700 hover:text-green-900 flex items-center gap-1 pt-1">
+                      Open in Planter Checks <ChevronRight className="h-4 w-4" />
+                    </Link>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
