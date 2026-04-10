@@ -125,12 +125,12 @@ function CornForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Partia
   return (
     <div className="space-y-3">
       <SeasonSection title="Early Season">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormSelect label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} opts={GROWTH_STAGE_OPTIONS_BY_CROP.Corn} />
           <FormNum label="Plant Stand (plants/ac)" value={data.plantStand} onChange={v => set('plantStand', v)} />
           <FormNum label="Rootworm Feeding (0-10)" value={data.rootwormFeeding} onChange={v => set('rootwormFeeding', v)} />
           <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <p className="text-xs font-medium text-gray-600 mb-1">Weeds Present</p>
             <div className="flex flex-wrap gap-3">
               {WEED_OPTIONS.map(w => (
@@ -142,7 +142,7 @@ function CornForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Partia
       </SeasonSection>
 
       <SeasonSection title="Mid Season">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormNum label="Corn Borer (larvae/plant)" value={data.cornBorer} onChange={v => set('cornBorer', v)} />
           {showAphids && <FormNum label="Aphids (per plant)" value={data.aphids} onChange={v => set('aphids', v)} />}
         </div>
@@ -171,12 +171,12 @@ function CanolaForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Part
   return (
     <div className="space-y-3">
       <SeasonSection title="Early Season">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormSelect label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} opts={GROWTH_STAGE_OPTIONS_BY_CROP.Canola} />
           <FormNum label="Plant Stand (plants/m²)" value={data.plantStand} onChange={v => set('plantStand', v)} />
           <FormNum label="Flea Beetle Feeding (0-10)" value={data.fleaBeetleFeeding} onChange={v => set('fleaBeetleFeeding', v)} />
           <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <p className="text-xs font-medium text-gray-600 mb-1">Weeds Present</p>
             <div className="flex flex-wrap gap-3">
               {WEED_OPTIONS.map(w => (
@@ -188,7 +188,7 @@ function CanolaForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Part
       </SeasonSection>
 
       <SeasonSection title="Mid Season">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormNum label="Bertha (larvae/m²)" value={data.bertha} onChange={v => set('bertha', v)} />
           {showAphids && <FormNum label="Aphids (per plant)" value={data.aphids} onChange={v => set('aphids', v)} />}
         </div>
@@ -217,11 +217,11 @@ function SoyForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Partial
   return (
     <div className="space-y-3">
       <SeasonSection title="Early Season">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormSelect label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} opts={GROWTH_STAGE_OPTIONS_BY_CROP.Soybeans} />
           <FormNum label="Plant Stand (plants/ac)" value={data.plantStand} onChange={v => set('plantStand', v)} />
           <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <p className="text-xs font-medium text-gray-600 mb-1">Weeds Present</p>
             <div className="flex flex-wrap gap-3">
               {WEED_OPTIONS.map(w => (
@@ -233,7 +233,7 @@ function SoyForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Partial
       </SeasonSection>
 
       <SeasonSection title="Mid Season">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {showAphids && <FormNum label="Aphids (per plant)" value={data.aphids} onChange={v => set('aphids', v)} />}
           <FormNum label="Pod Damage (%)" value={data.podDamage} onChange={v => set('podDamage', v)} />
         </div>
@@ -262,11 +262,11 @@ function WheatForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Parti
   return (
     <div className="space-y-3">
       <SeasonSection title="Early Season">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormSelect label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} opts={GROWTH_STAGE_OPTIONS_BY_CROP.Wheat} />
           <FormNum label="Plant Stand (plants/m²)" value={data.plantStand} onChange={v => set('plantStand', v)} />
           <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <p className="text-xs font-medium text-gray-600 mb-1">Weeds Present</p>
             <div className="flex flex-wrap gap-3">
               {WEED_OPTIONS.map(w => (
@@ -278,7 +278,7 @@ function WheatForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Parti
       </SeasonSection>
 
       <SeasonSection title="Mid Season">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {showAphids && <FormNum label="Aphids (per plant)" value={data.aphids} onChange={v => set('aphids', v)} />}
           <div>
             <p className="text-xs font-medium text-gray-600 mb-1">Insect / Stress Flags</p>
@@ -314,12 +314,12 @@ function EdibleBeanForm({ data, onChange, weedsPresent, onToggleWeed }: { data: 
   return (
     <div className="space-y-3">
       <SeasonSection title="Early Season">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormSelect label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} opts={GROWTH_STAGE_OPTIONS_BY_CROP['Edible Beans']} />
           <FormNum label="Plant Stand (plants/ac)" value={data.plantStand} onChange={v => set('plantStand', v)} />
           <FormNum label="Bean Leaf Beetle Defoliation (%)" value={data.beanLeafBeetle} onChange={v => set('beanLeafBeetle', v)} />
           <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <p className="text-xs font-medium text-gray-600 mb-1">Weeds Present</p>
             <div className="flex flex-wrap gap-3">
               {WEED_OPTIONS.map(w => (
@@ -331,7 +331,7 @@ function EdibleBeanForm({ data, onChange, weedsPresent, onToggleWeed }: { data: 
       </SeasonSection>
 
       <SeasonSection title="Mid Season">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {showAphids && <FormNum label="Aphids (per plant)" value={data.aphids} onChange={v => set('aphids', v)} />}
           <FormSelect label="Pod Fill" value={data.podFill} onChange={v => set('podFill', v)} opts={['poor','fair','good']} />
         </div>
@@ -360,11 +360,11 @@ function OatsForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Partia
   return (
     <div className="space-y-3">
       <SeasonSection title="Early Season">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormSelect label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} opts={GROWTH_STAGE_OPTIONS_BY_CROP.Oats} />
           <FormNum label="Plant Stand (plants/m²)" value={data.plantStand} onChange={v => set('plantStand', v)} />
           <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <p className="text-xs font-medium text-gray-600 mb-1">Weeds Present</p>
             <div className="flex flex-wrap gap-3">
               {WEED_OPTIONS.map(w => (
@@ -376,7 +376,7 @@ function OatsForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Partia
       </SeasonSection>
 
       <SeasonSection title="Mid Season">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {showAphids && <FormNum label="Aphids (per plant)" value={data.aphids} onChange={v => set('aphids', v)} />}
           <div>
             <p className="text-xs font-medium text-gray-600 mb-1">Insect / Stress Flags</p>
@@ -412,13 +412,13 @@ function PotatoForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Part
   return (
     <div className="space-y-3">
       <SeasonSection title="Early Season">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormSelect label="Growth Stage" value={data.growthStage} onChange={v => set('growthStage', v)} opts={GROWTH_STAGE_OPTIONS_BY_CROP.Potatoes} />
           <FormNum label="Plant Stand (plants/10ft)" value={data.plantStand} onChange={v => set('plantStand', v)} />
           <FormNum label="Seed Rot (% plants affected)" value={data.seedRot} onChange={v => set('seedRot', v)} />
           <FormNum label="Blackleg (% plants)" value={data.blackleg} onChange={v => set('blackleg', v)} />
           <FormSelect label="Weed Pressure" value={data.weedPressure} onChange={v => set('weedPressure', v)} opts={['none','low','medium','high']} />
-          <div className="col-span-2">
+          <div className="sm:col-span-2">
             <p className="text-xs font-medium text-gray-600 mb-1">Weeds Present</p>
             <div className="flex flex-wrap gap-3">
               {WEED_OPTIONS.map(w => (
@@ -431,7 +431,7 @@ function PotatoForm({ data, onChange, weedsPresent, onToggleWeed }: { data: Part
       </SeasonSection>
 
       <SeasonSection title="Mid Season">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FormNum label="Avg Stems per Plant" value={data.avgStemsPerPlant} onChange={v => set('avgStemsPerPlant', v)} step={0.1} />
           <FormNum label="Avg Tubers per Stem" value={data.avgTubersPerStem} onChange={v => set('avgTubersPerStem', v)} step={0.1} />
           <FormSelect label="Tuber Size" value={data.tuberSize} onChange={v => set('tuberSize', v)} opts={['Hooking','Match Stick','Dime Size','1 Inch','2 Inch']} />
@@ -918,7 +918,7 @@ export default function Scouting({ data, updateData }: Props) {
 
             <div className="p-5 space-y-5">
               {/* Header fields */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="form-label">Field * </label>
                   <select className="form-input" value={fieldId} onChange={e => setFieldId(e.target.value)}>
@@ -979,7 +979,7 @@ export default function Scouting({ data, updateData }: Props) {
                     <button type="button" onClick={() => setTrailPoints([])} className="btn-secondary text-xs py-1.5">Clear</button>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="form-label">Track Name</label>
                     <input
@@ -1129,7 +1129,7 @@ export default function Scouting({ data, updateData }: Props) {
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="form-label">Application Method</label>
                         <select className="form-input" value={sprayMethod} onChange={e => setSprayMethod(e.target.value)}>
@@ -1187,7 +1187,7 @@ export default function Scouting({ data, updateData }: Props) {
               </button>
             </div>
             <div className="p-5 space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div><span className="text-gray-500">Crop:</span> <span className="font-medium">{viewReport.cropType}</span></div>
                 <div><span className="text-gray-500">Variety:</span> <span className="font-medium">{viewReport.variety || '—'}</span></div>
                 <div><span className="text-gray-500">Date:</span> <span className="font-medium">{viewReport.date}</span></div>
