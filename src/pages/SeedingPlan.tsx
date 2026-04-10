@@ -17,6 +17,8 @@ const SEED_TREATMENT_PRODUCTS = [
   'Maxim',
   'Poncho',
 ];
+const SEED_TREATMENT_UNITS = ['L/ac', 'ML/AC', 'ML/CWT', 'L/CWT'] as const;
+type SeedTreatmentUnit = (typeof SEED_TREATMENT_UNITS)[number];
 
 interface Props {
   data: AppData;
@@ -51,7 +53,7 @@ export default function SeedingPlan({ data, updateData }: Props) {
   const [closedShape, setClosedShape] = useState(false);
   const [pinInfo, setPinInfo] = useState('');
   const [mapMode, setMapMode] = useState<'pin' | 'draw'>('pin');
-  const [seedChemicals, setSeedChemicals] = useState<Array<{ name: string; rate: string }>>([]);
+  const [seedChemicals, setSeedChemicals] = useState<Array<{ name: string; rate: string; unit: SeedTreatmentUnit }>>([]);
   const [filterCrop, setFilterCrop] = useState<CropType | ''>('');
   const orderedFields = [...data.fields].sort((a, b) => {
     const cropCmp = CROPS.indexOf(a.cropType) - CROPS.indexOf(b.cropType);
@@ -100,8 +102,20 @@ export default function SeedingPlan({ data, updateData }: Props) {
     // Parse chemicalMix back into array
     const chemArray = entry.chemicalMix
       ? entry.chemicalMix.split(' | ').map(c => {
-          const [name, rate] = c.split(' @ ');
-          return { name: name?.trim() || '', rate: rate?.trim() || '' };
+          const [name, rawRate] = c.split(' @ ');
+          const rateText = rawRate?.trim() || '';
+          const unitMatch = rateText.match(/\s*(L\/ac|ML\/AC|ml\/ac|ML\/CWT|mL\/CT|L\/CWT)$/i);
+          const parsedUnit: SeedTreatmentUnit = unitMatch
+            ? (() => {
+                const normalizedUnit = unitMatch[1].toLowerCase();
+                if (normalizedUnit === 'ml/ac') return 'ML/AC';
+                if (normalizedUnit === 'ml/cwt' || normalizedUnit === 'ml/ct') return 'ML/CWT';
+                if (normalizedUnit === 'l/cwt') return 'L/CWT';
+                return 'L/ac';
+              })()
+            : (name?.toLowerCase().includes('gibberlic') ? 'ML/AC' : 'L/ac');
+          const rateValue = unitMatch ? rateText.slice(0, rateText.length - unitMatch[0].length).trim() : rateText;
+          return { name: name?.trim() || '', rate: rateValue, unit: parsedUnit };
         })
       : [];
     setSeedChemicals(chemArray);
@@ -132,7 +146,7 @@ export default function SeedingPlan({ data, updateData }: Props) {
     // Convert seedChemicals array back to string format
     const chemicalMixString = seedChemicals
       .filter(c => c.name.trim())
-      .map(c => `${c.name.trim()}${c.rate ? ` @ ${c.rate.trim()}` : ''}`)
+      .map(c => `${c.name.trim()}${c.rate ? ` @ ${c.rate.trim()} ${c.unit}` : ''}`)
       .join(' | ');
     const entry: SeedingPlan = {
       id: editingId ?? generateId(),
@@ -307,33 +321,42 @@ export default function SeedingPlan({ data, updateData }: Props) {
                   <input type="number" step="0.25" className="form-input" value={form.seedDepth ?? ''} onChange={e => setForm(f => ({ ...f, seedDepth: parseFloat(e.target.value) || undefined }))} />
                 </div>
                 {form.cropType === 'Potatoes' && (
-                  <div>
+                  <div className="col-span-2">
                     <label className="form-label">Seed Treatments</label>
                     <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50">
                       {seedChemicals.map((chem, idx) => {
-                        const isGibberlic = chem.name.toLowerCase().includes('gibberlic');
-                        const unit = isGibberlic ? 'ml/ac' : 'L/ac';
                         return (
-                          <div key={idx} className="flex gap-2 items-center">
+                          <div key={idx} className="grid grid-cols-[minmax(0,1fr)_6.5rem_5.25rem_auto] sm:grid-cols-[minmax(14rem,1fr)_11rem_7rem_auto] gap-2 items-center">
                             <select
-                              className="form-input flex-1"
+                              className="form-input w-full"
                               value={chem.name}
-                              onChange={e => setSeedChemicals(prev => prev.map((c, i) => i === idx ? { ...c, name: e.target.value } : c))}
+                              onChange={e => setSeedChemicals(prev => prev.map((c, i) => {
+                                if (i !== idx) return c;
+                                const nextName = e.target.value;
+                                const suggestedUnit: SeedTreatmentUnit = nextName.toLowerCase().includes('gibberlic') ? 'ML/AC' : 'L/ac';
+                                return { ...c, name: nextName, unit: c.rate ? c.unit : suggestedUnit };
+                              }))}
                             >
                               <option value="">Select product...</option>
                               {SEED_TREATMENT_PRODUCTS.map(product => (
                                 <option key={product} value={product}>{product}</option>
                               ))}
                             </select>
-                            <div className="relative w-32">
+                            <div className="w-full">
                               <input
-                                className="form-input pr-10 w-full"
+                                className="form-input w-full"
                                 value={chem.rate}
                                 onChange={e => setSeedChemicals(prev => prev.map((c, i) => i === idx ? { ...c, rate: e.target.value } : c))}
                                 placeholder="Rate"
                               />
-                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 pointer-events-none">{unit}</span>
                             </div>
+                            <select
+                              className="form-input !w-full shrink-0 px-2"
+                              value={chem.unit}
+                              onChange={e => setSeedChemicals(prev => prev.map((c, i) => i === idx ? { ...c, unit: e.target.value as SeedTreatmentUnit } : c))}
+                            >
+                              {SEED_TREATMENT_UNITS.map(unit => <option key={unit} value={unit}>{unit}</option>)}
+                            </select>
                             <button
                               type="button"
                               onClick={() => setSeedChemicals(prev => prev.filter((_, i) => i !== idx))}
@@ -347,7 +370,7 @@ export default function SeedingPlan({ data, updateData }: Props) {
                       <button
                         type="button"
                         className="btn-secondary text-xs px-3"
-                        onClick={() => setSeedChemicals(prev => [...prev, { name: '', rate: '' }])}
+                        onClick={() => setSeedChemicals(prev => [...prev, { name: '', rate: '', unit: 'L/ac' }])}
                       >
                         + Add Treatment
                       </button>
