@@ -5,6 +5,7 @@ type OperationKind =
   | 'seeding-plan'
   | 'tillage'
   | 'seeding-record'
+  | 'planter-check'
   | 'scouting'
   | 'spray'
   | 'harvest'
@@ -15,11 +16,12 @@ const OPERATION_ORDER: Record<OperationKind, number> = {
   'seeding-plan': 1,
   tillage: 2,
   'seeding-record': 3,
-  scouting: 4,
-  spray: 5,
-  harvest: 6,
-  storage: 7,
-  'potato-yield': 8,
+  'planter-check': 4,
+  scouting: 5,
+  spray: 6,
+  harvest: 7,
+  storage: 8,
+  'potato-yield': 9,
 };
 
 const TABLE_GRADE_COLUMNS = [
@@ -67,6 +69,48 @@ function summarizeNotes(notes?: string): string | undefined {
   return notes.trim() || undefined;
 }
 
+function getSprayChemicalsForExport(application: {
+  chemicals?: Array<{ name: string; rate: string; rateUnit?: string }>;
+  product?: string;
+  products?: string[];
+  rate?: string;
+}): Array<{ name: string; rate?: string }> {
+  if ((application.chemicals?.length ?? 0) > 0) {
+    return (application.chemicals ?? []).map(chemical => ({
+      name: chemical.name,
+      rate: chemical.rate ? `${chemical.rate}${chemical.rateUnit ? ` ${chemical.rateUnit}` : ''}` : undefined,
+    }));
+  }
+
+  const legacyProducts = (application.products?.length ?? 0) > 0
+    ? application.products ?? []
+    : (application.product ? [application.product] : []);
+
+  return legacyProducts.map(name => ({
+    name,
+    rate: application.rate || undefined,
+  }));
+}
+
+function buildSprayChemicalColumns(application: {
+  chemicals?: Array<{ name: string; rate: string; rateUnit?: string }>;
+  product?: string;
+  products?: string[];
+  rate?: string;
+}, maxChemicals: number): Record<string, string | undefined> {
+  const chemicals = getSprayChemicalsForExport(application);
+  const columns: Record<string, string | undefined> = {};
+
+  for (let index = 0; index < maxChemicals; index += 1) {
+    const chemical = chemicals[index];
+    const i = index + 1;
+    columns[`Chemical${i}`] = chemical?.name;
+    columns[`Rate${i}`] = chemical?.rate;
+  }
+
+  return columns;
+}
+
 function sortFieldNumbers<T extends { fieldNumber?: string | null }>(items: T[]): T[] {
   return [...items].sort((left, right) => (left.fieldNumber ?? '').localeCompare(right.fieldNumber ?? '', undefined, {
     numeric: true,
@@ -93,18 +137,22 @@ function sortOperations<T extends { kind: OperationKind; date: string; fieldNumb
 }
 
 function createAiExportData(data: AppData) {
-  const seedingPlans = sortFieldNumbers(data.seedingEntries.filter(isSeedingPlan)).map(entry => ({
+  const seedingPlansSource = data.seedingPlans.length > 0 ? data.seedingPlans : data.seedingEntries.filter(isSeedingPlan);
+  const seedingPlans = sortFieldNumbers(seedingPlansSource).map(entry => ({
     id: entry.id,
     fieldId: entry.fieldId,
     fieldNumber: entry.fieldNumber,
     cropType: entry.cropType,
     variety: entry.variety,
     seedingDate: entry.seedingDate,
+    seedingDirection: entry.seedingDirection,
+    chemicalMix: entry.chemicalMix,
     seedingRate: entry.seedingRate,
     rowSpacing: entry.rowSpacing,
     seedDepth: entry.seedDepth,
-    population: entry.population,
+    population: 'population' in entry ? entry.population : undefined,
     fieldTrials: entry.fieldTrials,
+    pinInfo: entry.pinInfo,
     notes: summarizeNotes(entry.notes),
     trackName: entry.trialTrack?.name,
     trackPointCount: entry.trialTrack?.points.length ?? 0,
@@ -173,6 +221,38 @@ function createAiExportData(data: AppData) {
     createdAt: report.createdAt,
   }));
 
+  const planterChecks = sortFieldNumbers(data.planterChecks).map(check => {
+    const allRows = (check.checks?.flatMap(pass => pass.rows) ?? check.rows ?? []).filter(row => row.spacingInches !== undefined);
+    const avgSpacing = allRows.length > 0
+      ? allRows.reduce((sum, row) => sum + (row.spacingInches ?? 0), 0) / allRows.length
+      : undefined;
+    const avgDoubles = allRows.length > 0
+      ? allRows.reduce((sum, row) => sum + (row.doublesCount ?? 0), 0) / allRows.length
+      : undefined;
+    const avgSkips = allRows.length > 0
+      ? allRows.reduce((sum, row) => sum + (row.skipsCount ?? 0), 0) / allRows.length
+      : undefined;
+
+    return {
+      id: check.id,
+      fieldId: check.fieldId,
+      fieldNumber: check.fieldNumber,
+      variety: check.variety,
+      date: check.date,
+      planterName: check.planterName,
+      targetSpacingInches: check.targetSpacingInches,
+      toleranceInches: check.toleranceInches,
+      checkCount: check.checks?.length ?? 0,
+      rowCount: allRows.length,
+      avgSpacingInches: avgSpacing,
+      avgDoubles: avgDoubles,
+      avgSkips: avgSkips,
+      notes: summarizeNotes(check.notes),
+      rowsJson: JSON.stringify(check.checks?.length ? check.checks : (check.rows ?? [])),
+      createdAt: check.createdAt,
+    };
+  });
+
   const operationsTimeline = sortOperations([
     ...data.seedingEntries.filter(isSeedingPlan).map(entry => ({
       kind: 'seeding-plan' as const,
@@ -200,6 +280,15 @@ function createAiExportData(data: AppData) {
       fieldNumber: entry.fieldNumber,
       cropType: entry.cropType,
       summary: `${entry.cropType}${entry.variety ? ` - ${entry.variety}` : ''}`,
+    })),
+    ...planterChecks.map(check => ({
+      kind: 'planter-check' as const,
+      id: check.id,
+      date: check.date,
+      fieldId: check.fieldId,
+      fieldNumber: check.fieldNumber,
+      cropType: 'Potatoes' as CropType,
+      summary: `${check.planterName}${check.variety ? ` - ${check.variety}` : ''}`,
     })),
     ...data.scoutingReports.map(report => ({
       kind: 'scouting' as const,
@@ -275,6 +364,7 @@ function createAiExportData(data: AppData) {
         weatherAtApplication: report.weatherAtApplication,
         notes: summarizeNotes(report.notes),
       }))),
+      planterChecks: sortByDateDesc(planterChecks.filter(check => check.fieldId === field.id)),
       harvest: sortByDateDesc(data.harvestReports.filter(report => report.fieldId === field.id && !report.binNumber)),
       storage: sortByDateDesc(data.harvestReports.filter(report => report.fieldId === field.id && !!report.binNumber)),
       potatoYield: sortByDateDesc(potatoYieldReports.filter(report => report.fieldId === field.id)),
@@ -290,6 +380,7 @@ function createAiExportData(data: AppData) {
       seedingPlanCount: seedingPlans.length,
       seedingRecordCount: seedingRecords.length,
       tillageReportCount: data.tillageReports.length,
+      planterCheckCount: data.planterChecks.length,
       harvestReportCount: data.harvestReports.length,
       potatoYieldReportCount: data.potatoYieldReports.length,
       storageBinCount: data.potatoStorageBins.length,
@@ -303,6 +394,7 @@ function createAiExportData(data: AppData) {
       ...report,
       fieldNumber: report.fieldNumbers[0] ?? null,
     }))),
+    planterChecks,
     harvestReports: sortFieldNumbers(data.harvestReports),
     potatoYieldReports,
     storageBins: sortFieldNumbers(data.potatoStorageBins.map(bin => ({ ...bin, fieldNumber: bin.fieldNumber ?? null }))),
@@ -333,6 +425,10 @@ export function exportAiDataJson(data: AppData): void {
 
 export function exportExcelData(data: AppData): void {
   const exportData = createAiExportData(data);
+  const maxSprayChemicals = exportData.sprayApplications.reduce((maxCount, application) => {
+    const chemicalCount = getSprayChemicalsForExport(application).length;
+    return Math.max(maxCount, chemicalCount);
+  }, 0);
   const fieldSummaryRowsRaw = [
     ...exportData.seedingPlans.map(item => ({
       kind: 'seeding-plan' as const,
@@ -342,11 +438,14 @@ export function exportExcelData(data: AppData): void {
       Date: item.seedingDate,
       CropType: item.cropType,
       Variety: item.variety,
+      SeedingDirection: item.seedingDirection,
       SeedingRate: item.seedingRate,
       RowSpacingInches: item.rowSpacing,
       SeedDepthInches: item.seedDepth,
       Population: item.population,
+      ChemicalMix: item.chemicalMix,
       FieldTrials: item.fieldTrials,
+      PinInfo: item.pinInfo,
       TrackName: item.trackName,
       TrackPointCount: item.trackPointCount,
       PinCount: item.pinCount,
@@ -409,9 +508,7 @@ export function exportExcelData(data: AppData): void {
       FieldNumbers: item.fieldNumbers.join(', '),
       Status: item.status,
       Priority: item.priority,
-      Product: item.product,
-      Products: item.products?.join(', '),
-      Chemicals: item.chemicals?.map(chemical => `${chemical.name}${chemical.rate ? ` (${chemical.rate} L)` : ''}`).join(', '),
+      ...buildSprayChemicalColumns(item, maxSprayChemicals),
       ActiveIngredient: item.activeIngredient,
       Rate: item.rate,
       WaterVolume: item.waterVolume,
@@ -420,6 +517,23 @@ export function exportExcelData(data: AppData): void {
       Sprayer: item.sprayer,
       Operator: item.operator,
       WeatherAtApplication: item.weatherAtApplication,
+      Notes: item.notes,
+    })),
+    ...exportData.planterChecks.map(item => ({
+      kind: 'planter-check' as const,
+      date: item.date,
+      FieldNumber: item.fieldNumber,
+      Operation: 'Planter Check',
+      Date: item.date,
+      Variety: item.variety,
+      PlanterName: item.planterName,
+      TargetSpacingInches: item.targetSpacingInches,
+      ToleranceInches: item.toleranceInches,
+      CheckCount: item.checkCount,
+      RowCount: item.rowCount,
+      AvgSpacingInches: item.avgSpacingInches,
+      AvgDoubles: item.avgDoubles,
+      AvgSkips: item.avgSkips,
       Notes: item.notes,
     })),
     ...exportData.harvestReports.filter(item => !item.binNumber).map(item => ({
@@ -498,11 +612,14 @@ export function exportExcelData(data: AppData): void {
       CropType: item.cropType,
       Variety: item.variety,
       SeedingDate: item.seedingDate,
+      SeedingDirection: item.seedingDirection,
       SeedingRate: item.seedingRate,
       RowSpacing: item.rowSpacing,
       SeedDepth: item.seedDepth,
       Population: item.population,
+      ChemicalMix: item.chemicalMix,
       FieldTrials: item.fieldTrials,
+      PinInfo: item.pinInfo,
       TrackName: item.trackName,
       TrackPointCount: item.trackPointCount,
       PinCount: item.pinCount,
@@ -547,13 +664,27 @@ export function exportExcelData(data: AppData): void {
       AppliedDate: item.appliedDate,
       Status: item.status,
       Priority: item.priority,
-      Product: item.product,
-      Products: item.products?.join(', '),
-      Chemicals: item.chemicals?.map(chemical => `${chemical.name}${chemical.rate ? ` (${chemical.rate} L)` : ''}`).join(', '),
+      ...buildSprayChemicalColumns(item, maxSprayChemicals),
       ApplicationMethod: item.applicationMethod,
       TargetPest: item.targetPest,
       WaterVolume: item.waterVolume,
       Notes: item.notes,
+    })),
+    PlanterChecks: exportData.planterChecks.map(item => ({
+      FieldNumber: item.fieldNumber,
+      Date: item.date,
+      Variety: item.variety,
+      PlanterName: item.planterName,
+      TargetSpacingInches: item.targetSpacingInches,
+      ToleranceInches: item.toleranceInches,
+      CheckCount: item.checkCount,
+      RowCount: item.rowCount,
+      AvgSpacingInches: item.avgSpacingInches,
+      AvgDoubles: item.avgDoubles,
+      AvgSkips: item.avgSkips,
+      Notes: item.notes,
+      RowsJson: item.rowsJson,
+      CreatedAt: item.createdAt,
     })),
     Harvest: exportData.harvestReports.map(item => ({
       FieldNumber: item.fieldNumber,
