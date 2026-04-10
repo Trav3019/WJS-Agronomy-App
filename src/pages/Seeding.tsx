@@ -319,7 +319,7 @@ export default function Seeding({ data, updateData }: Props) {
         <button onClick={openNew} className="btn-primary whitespace-nowrap">
           <Plus className="h-4 w-4" /> New Entry
         </button>
-        <div className="text-sm text-gray-500 self-center">{filtered.length} entr{filtered.length !== 1 ? 'ies' : 'y'}</div>
+        <div className="hidden sm:block text-sm text-gray-500 self-center">{filtered.length} entr{filtered.length !== 1 ? 'ies' : 'y'}</div>
       </div>
 
       {/* Entries list */}
