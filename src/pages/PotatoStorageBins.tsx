@@ -110,7 +110,6 @@ export default function PotatoStorageBins({ data, updateData }: Props) {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-green-900">Potato Storage Bins</h1>
-          <p className="text-sm text-gray-500 mt-1">Bin layout auto-populates from Potato Harvest entries by selected Bin #.</p>
         </div>
         <button
           onClick={() => { setShowAddBin(true); setNewBinName(''); setAddBinError(''); }}
