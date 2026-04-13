@@ -38,6 +38,8 @@ const emptyField = (): Omit<Field, 'id' | 'createdAt' | 'updatedAt'> => ({
 export default function Fields({ data, updateData }: Props) {
   const [editing, setEditing] = useState<Field | null>(null);
   const [isNew, setIsNew] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [pendingDeleteSelected, setPendingDeleteSelected] = useState(false);
   const [form, setForm] = useState(emptyField());
   const [filterCrop, setFilterCrop] = useState<CropType | ''>('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -126,17 +128,34 @@ export default function Fields({ data, updateData }: Props) {
   }
 
   function handleDelete(id: string) {
-    if (!confirm('Delete this field?')) return;
-    updateData(prev => deleteField(prev, id));
-    setSelectedIds(prev => prev.filter(selectedId => selectedId !== id));
+    setPendingDeleteId(id);
+    setPendingDeleteSelected(false);
   }
 
   function handleDeleteSelected() {
     if (selectedIds.length === 0) return;
-    const label = selectedIds.length === 1 ? 'field' : 'fields';
-    if (!confirm(`Delete ${selectedIds.length} selected ${label}?`)) return;
-    updateData(prev => selectedIds.reduce((acc, id) => deleteField(acc, id), prev));
-    setSelectedIds([]);
+    setPendingDeleteSelected(true);
+    setPendingDeleteId(null);
+  }
+
+  function cancelPendingDelete() {
+    setPendingDeleteId(null);
+    setPendingDeleteSelected(false);
+  }
+
+  function confirmPendingDelete() {
+    if (pendingDeleteSelected) {
+      updateData(prev => selectedIds.reduce((acc, id) => deleteField(acc, id), prev));
+      setSelectedIds([]);
+      cancelPendingDelete();
+      return;
+    }
+
+    if (pendingDeleteId) {
+      updateData(prev => deleteField(prev, pendingDeleteId));
+      setSelectedIds(prev => prev.filter(selectedId => selectedId !== pendingDeleteId));
+      cancelPendingDelete();
+    }
   }
 
   function toggleSelected(id: string) {
@@ -279,10 +298,10 @@ export default function Fields({ data, updateData }: Props) {
                 </div>
               </div>
               <div className="flex gap-2 shrink-0">
-                <button onClick={() => openEdit(field)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors">
+                <button type="button" onClick={() => openEdit(field)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors">
                   <Pencil className="h-4 w-4" />
                 </button>
-                <button onClick={() => handleDelete(field.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors">
+                <button type="button" onClick={() => handleDelete(field.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors" aria-label={`Delete field ${field.fieldNumber}`}>
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
@@ -430,6 +449,25 @@ export default function Fields({ data, updateData }: Props) {
               <button onClick={handleSave} className="btn-primary" disabled={!form.fieldNumber.trim()}>
                 {isNew ? 'Add Field' : 'Save Changes'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(pendingDeleteId || pendingDeleteSelected) && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm">
+            <div className="p-5 border-b">
+              <h2 className="text-lg font-semibold">Confirm Delete</h2>
+            </div>
+            <div className="p-5 text-sm text-gray-700">
+              {pendingDeleteSelected
+                ? `Delete ${selectedIds.length} selected ${selectedIds.length === 1 ? 'field' : 'fields'}?`
+                : 'Delete this field?'}
+            </div>
+            <div className="flex justify-end gap-3 p-5 border-t bg-gray-50 rounded-b-xl">
+              <button type="button" onClick={cancelPendingDelete} className="btn-secondary">Cancel</button>
+              <button type="button" onClick={confirmPendingDelete} className="btn-danger">Delete</button>
             </div>
           </div>
         </div>
