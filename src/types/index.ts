@@ -306,6 +306,7 @@ export interface SeedingPlan {
 export interface PlanterCheckRow {
   rowNumber: number;
   spacingInches?: number;
+  depthInches?: number;
   doublesCount?: number;
   skipsCount?: number;
   notes?: string;
@@ -323,9 +324,13 @@ export interface PlanterCheck {
   fieldNumber: string;
   variety: string;
   date: string;
+  equipmentType?: 'potato-planter' | 'row-planter' | 'air-seeder';
   planterName: string;
+  rowCount?: number;
   targetSpacingInches: number;
   toleranceInches: number;
+  targetDepthInches?: number;
+  depthToleranceInches?: number;
   checks: PlanterCheckPass[];
   rows?: PlanterCheckRow[];
   notes: string;
