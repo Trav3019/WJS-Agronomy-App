@@ -327,7 +327,59 @@ export default function SprayPlanner({ data, updateData }: Props) {
           ));
           return (
           <div key={app.id} className={`card hover:shadow-md transition-shadow ${app.priority === 'high' && app.status === 'planned' ? 'border-red-200 bg-red-50' : ''}`}>
-            <div className="flex items-start justify-between gap-3">
+            <div className="sm:hidden space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Syringe className="h-4 w-4 text-green-600" />
+                    <span className="font-semibold text-green-900 truncate">{app.fieldNumbers.length > 0 ? `Field ${app.fieldNumbers.join(', ')}` : 'All Fields'}</span>
+                    {app.priority === 'high' && <AlertTriangle className="h-4 w-4 text-red-500" />}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={app.status} />
+                    <span className="text-xs text-gray-500 truncate">{fieldCrops.length > 0 ? fieldCrops.join(', ') : 'N/A'}</span>
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-1.5">
+                  {app.status === 'planned' && (
+                    <button
+                      onClick={() => markApplied(app)}
+                      className="text-green-600 hover:bg-green-50 p-1.5 rounded-md"
+                      title="Mark applied"
+                      aria-label="Mark applied"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                    </button>
+                  )}
+                  <button onClick={() => setViewApp(app)} className="btn-secondary text-xs py-1.5 px-2">
+                    <Eye className="h-3.5 w-3.5" />
+                  </button>
+                  <button onClick={() => openEdit(app)} className="btn-secondary text-xs py-1.5 px-2">Edit</button>
+                  <button onClick={() => handleDelete(app.id)} className="text-red-500 hover:bg-red-50 p-1.5 rounded-md">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="text-xs text-gray-600 grid grid-cols-2 gap-x-2 gap-y-1">
+                <div><span className="text-gray-500">Method:</span> {app.applicationMethod}</div>
+                {app.status === 'applied' && app.appliedDate && <div><span className="text-gray-500">Applied:</span> {app.appliedDate}</div>}
+                <div className="col-span-2"><span className="text-gray-500">Chemicals:</span> {displayChemicals.length}</div>
+              </div>
+
+              {displayChemicals.length > 0 && (
+                <div className="text-xs text-gray-600 space-y-0.5">
+                  {displayChemicals.slice(0, 2).map((c, idx) => (
+                    <div key={`${app.id}-${c.name}-${idx}`} className="truncate">
+                      {c.name}{c.rate ? ` - ${formatChemicalRate(c)}` : ''}
+                    </div>
+                  ))}
+                  {displayChemicals.length > 2 && <div className="text-gray-500">+{displayChemicals.length - 2} more</div>}
+                </div>
+              )}
+            </div>
+
+            <div className="hidden sm:flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 mb-1">
                   <Syringe className="h-4 w-4 text-green-600" />
