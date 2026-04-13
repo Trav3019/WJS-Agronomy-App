@@ -249,12 +249,11 @@ export default function Harvest({ data, updateData }: Props) {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-green-900">Harvest</h1>
-          <p className="text-sm text-gray-500 mt-1">Track harvest outcomes by field and date.</p>
         </div>
-        <button onClick={openNew} className="btn-primary whitespace-nowrap w-full sm:w-auto justify-center">
+        <button onClick={openNew} className="btn-primary whitespace-nowrap shrink-0">
           <Plus className="h-4 w-4" /> New Report
         </button>
       </div>
