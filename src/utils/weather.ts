@@ -131,6 +131,13 @@ export interface SoilTemperatureSnapshot {
   temp54cm: number;
 }
 
+export interface NearbySoilTemperatureResult {
+  stationName: string;
+  stationId: string;
+  distanceKm: number;
+  snapshot: SoilTemperatureSnapshot;
+}
+
 function parseCsvLine(line: string): string[] {
   const values: string[] = [];
   let current = '';
@@ -164,9 +171,50 @@ function parseCsvLine(line: string): string[] {
 }
 
 function toNumber(value: string | undefined): number {
-  const parsed = Number(value ?? '');
+  const normalized = (value ?? '').trim();
+  if (!normalized) throw new Error('Missing soil temperature value');
+  const parsed = Number(normalized);
   if (!Number.isFinite(parsed)) throw new Error('Invalid soil temperature value');
   return parsed;
+}
+
+function hasValue(value: string | undefined): boolean {
+  return (value ?? '').trim().length > 0;
+}
+
+function parseFeedTimestamp(dateValue: string | undefined, timeValue: string | undefined): number {
+  const date = (dateValue ?? '').trim();
+  const time = (timeValue ?? '').trim();
+  const dateMatch = date.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  const timeMatch = time.match(/^(\d{1,2}):(\d{2})$/);
+  if (!dateMatch || !timeMatch) return Number.NEGATIVE_INFINITY;
+
+  const month = Number(dateMatch[1]);
+  const day = Number(dateMatch[2]);
+  const year = Number(dateMatch[3]);
+  const hours = Number(timeMatch[1]);
+  const minutes = Number(timeMatch[2]);
+
+  const timestamp = Date.UTC(year, month - 1, day, hours, minutes);
+  return Number.isFinite(timestamp) ? timestamp : Number.NEGATIVE_INFINITY;
+}
+
+function toFiniteNumber(value: string | undefined): number | null {
+  const normalized = (value ?? '').trim();
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const r = 6371;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return 2 * r * Math.asin(Math.sqrt(a));
 }
 
 export async function getWinklerSoilTemperatures(): Promise<SoilTemperatureSnapshot> {
@@ -204,12 +252,23 @@ export async function getWinklerSoilTemperatures(): Promise<SoilTemperatureSnaps
     throw new Error('Winkler soil feed format changed');
   }
 
-  const winklerRow = lines
+  const winklerRows = lines
     .slice(1)
     .map(parseCsvLine)
-    .find(row => row[idx.stationId] === WINKLER_STATION_ID || row[idx.stationName] === 'Winkler');
+    .filter(row => row[idx.stationId] === WINKLER_STATION_ID || row[idx.stationName] === 'Winkler');
 
-  if (!winklerRow) throw new Error('Winkler station not found in feed');
+  if (winklerRows.length === 0) throw new Error('Winkler station not found in feed');
+
+  const winklerRow = winklerRows
+    .filter(row => hasValue(row[idx.soil5]) && hasValue(row[idx.soil20]) && hasValue(row[idx.soil50]) && hasValue(row[idx.soil100]))
+    .sort(
+      (a, b) =>
+        parseFeedTimestamp(b[idx.date], b[idx.time]) - parseFeedTimestamp(a[idx.date], a[idx.time])
+    )[0];
+
+  if (!winklerRow) {
+    throw new Error('Winkler station is online, but soil probe values are currently unavailable.');
+  }
 
   return {
     at: `${winklerRow[idx.date] ?? ''} ${winklerRow[idx.time] ?? ''}`.trim(),
@@ -219,6 +278,102 @@ export async function getWinklerSoilTemperatures(): Promise<SoilTemperatureSnaps
     temp18cm: toNumber(winklerRow[idx.soil50]),
     temp54cm: toNumber(winklerRow[idx.soil100]),
   };
+}
+
+export async function getNearestSoilTemperatures(
+  lat: number,
+  lng: number,
+  maxDistanceKm = 250
+): Promise<NearbySoilTemperatureResult> {
+  const res = await fetch(MB_HOURLY_CSV_URL);
+  if (!res.ok) throw new Error('Soil feed fetch failed');
+
+  const csv = await res.text();
+  const lines = csv
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  if (lines.length < 2) throw new Error('Soil feed is empty');
+
+  const header = parseCsvLine(lines[0]);
+  const idx = {
+    date: header.indexOf('DATE'),
+    time: header.indexOf('TIME'),
+    stationId: header.indexOf('StnID'),
+    stationName: header.indexOf('StnNAME'),
+    stationLat: header.indexOf('Lat'),
+    stationLng: header.indexOf('Long'),
+    soil5: header.indexOf('SoilTemp(5cm, Celsius)'),
+    soil20: header.indexOf('SoilTemp(20cm, Celsius)'),
+    soil50: header.indexOf('SoilTemp(50cm, Celsius)'),
+    soil100: header.indexOf('SoilTemp(100cm, Celsius)'),
+  };
+
+  if (
+    idx.stationId === -1 ||
+    idx.stationName === -1 ||
+    idx.stationLat === -1 ||
+    idx.stationLng === -1 ||
+    idx.soil5 === -1 ||
+    idx.soil20 === -1 ||
+    idx.soil50 === -1 ||
+    idx.soil100 === -1
+  ) {
+    throw new Error('Soil feed format changed');
+  }
+
+  let best: NearbySoilTemperatureResult | null = null;
+
+  for (const row of lines.slice(1).map(parseCsvLine)) {
+    if (!hasValue(row[idx.soil5]) || !hasValue(row[idx.soil20]) || !hasValue(row[idx.soil50]) || !hasValue(row[idx.soil100])) {
+      continue;
+    }
+
+    const stationLat = toFiniteNumber(row[idx.stationLat]);
+    const stationLng = toFiniteNumber(row[idx.stationLng]);
+    if (stationLat === null || stationLng === null) continue;
+
+    const distanceKm = haversineKm(lat, lng, stationLat, stationLng);
+    if (distanceKm > maxDistanceKm) continue;
+
+    const candidate: NearbySoilTemperatureResult = {
+      stationName: row[idx.stationName] ?? 'Unknown Station',
+      stationId: row[idx.stationId] ?? '',
+      distanceKm,
+      snapshot: {
+        at: `${row[idx.date] ?? ''} ${row[idx.time] ?? ''}`.trim(),
+        temp0cm: toNumber(row[idx.soil5]),
+        temp6cm: toNumber(row[idx.soil20]),
+        temp18cm: toNumber(row[idx.soil50]),
+        temp54cm: toNumber(row[idx.soil100]),
+      },
+    };
+
+    if (!best) {
+      best = candidate;
+      continue;
+    }
+
+    if (candidate.distanceKm < best.distanceKm) {
+      best = candidate;
+      continue;
+    }
+
+    if (
+      Math.abs(candidate.distanceKm - best.distanceKm) < 0.01 &&
+      parseFeedTimestamp(candidate.snapshot.at.split(' ')[0], candidate.snapshot.at.split(' ')[1]) >
+        parseFeedTimestamp(best.snapshot.at.split(' ')[0], best.snapshot.at.split(' ')[1])
+    ) {
+      best = candidate;
+    }
+  }
+
+  if (!best) {
+    throw new Error('No nearby station with soil probe values is currently available.');
+  }
+
+  return best;
 }
 
 export async function getCurrentSoilTemperatures(lat: number, lng: number): Promise<SoilTemperatureSnapshot> {
