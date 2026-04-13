@@ -820,8 +820,11 @@ export default function Scouting({ data, updateData }: Props) {
 
   return (
     <div className="space-y-5">
-      <div>
+      <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-green-900">Crop Scouting</h1>
+        <button onClick={openNew} className="btn-primary whitespace-nowrap text-xs sm:text-sm px-3 py-2">
+          <Plus className="h-4 w-4" /> New Report
+        </button>
       </div>
 
       {/* Map toggle */}
@@ -858,9 +861,6 @@ export default function Scouting({ data, updateData }: Props) {
             ))}
           </select>
         </div>
-        <button onClick={openNew} className="btn-primary whitespace-nowrap">
-          <Plus className="h-4 w-4" /> New Report
-        </button>
         <div className="hidden sm:flex items-center gap-1 text-xs text-gray-500 self-center">
           <Filter className="h-3 w-3" /> {filtered.length} report{filtered.length !== 1 ? 's' : ''}
         </div>
