@@ -119,7 +119,6 @@ export default function Tillage({ data, updateData }: Props) {
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-green-900">Tillage</h1>
-        <p className="text-sm text-gray-500 mt-1">Track tillage operations by field and date.</p>
       </div>
 
       <div className="flex items-end gap-2 flex-wrap sm:flex-nowrap">
