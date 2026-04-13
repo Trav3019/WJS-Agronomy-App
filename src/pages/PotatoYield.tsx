@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { AppData, PotatoYieldReport, PotatoType } from '../types';
 import { generateId, savePotatoYield, deletePotatoYield } from '../utils/storage';
-import { Sprout, Plus, X, Trash2, Eye, Calculator, Image as ImageIcon } from 'lucide-react';
+import { Sprout, Plus, X, Trash2, Eye, Pencil, Calculator, Image as ImageIcon } from 'lucide-react';
 import PhotoCapture from '../components/PhotoCapture';
 import { VARIETIES_BY_CROP } from '../utils/varieties';
 
@@ -207,8 +207,8 @@ export default function PotatoYield({ data, updateData }: Props) {
           </div>
         ) : filtered.map(report => (
           <div key={report.id} className="card hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex-1 min-w-0">
+            <div className="relative flex items-start justify-between gap-3">
+              <div className="flex-1 min-w-0 pr-28 sm:pr-0">
                 <div className="flex flex-wrap items-center gap-2 mb-1">
                   <span className="font-semibold text-green-900">Field {report.fieldNumber}</span>
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${report.potatoType === 'table' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'}`}>
@@ -232,7 +232,30 @@ export default function PotatoYield({ data, updateData }: Props) {
                   </div>
                 </div>
               </div>
-              <div className="flex gap-2 shrink-0">
+
+              <div className="sm:hidden absolute top-0 right-0 flex gap-1.5">
+                {(report.photos?.length ?? 0) > 0 && (
+                  <button
+                    onClick={() => setPreviewPhoto(report.photos?.[0] ?? null)}
+                    className="btn-secondary text-[11px] py-1 px-1.5"
+                    title="Open attached photos"
+                    aria-label="Open attached photos"
+                  >
+                    <ImageIcon className="h-3 w-3" />
+                  </button>
+                )}
+                <button onClick={() => setViewReport(report)} className="btn-secondary text-[11px] py-1 px-1.5" aria-label="View report">
+                  <Eye className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={() => openEdit(report)} className="btn-secondary text-[11px] py-1 px-1.5" aria-label="Edit report">
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={() => handleDelete(report.id)} className="text-red-500 hover:bg-red-50 p-1.5 rounded-md" aria-label="Delete report">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="hidden sm:flex gap-2 shrink-0">
                 {(report.photos?.length ?? 0) > 0 && (
                   <button
                     onClick={() => setPreviewPhoto(report.photos?.[0] ?? null)}
