@@ -62,6 +62,48 @@ body {
   @apply block w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm shadow-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500;
 }
 
+select.form-input {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 2.5rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%2363748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.7rem center;
+  background-size: 1rem;
+}
+
+.season-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.45rem center;
+  background-size: 0.9rem;
+}
+
+@media (max-width: 640px) {
+  .form-input {
+    min-height: 46px;
+    font-size: 16px;
+    padding-top: 0.7rem;
+    padding-bottom: 0.7rem;
+  }
+
+  .form-label {
+    font-size: 0.875rem;
+  }
+
+  .season-select {
+    min-height: 42px;
+    font-size: 16px;
+    padding-left: 0.7rem;
+    padding-right: 2rem;
+  }
+}
+
 .form-label {
   @apply block text-sm font-medium text-gray-700 mb-1;
 }
