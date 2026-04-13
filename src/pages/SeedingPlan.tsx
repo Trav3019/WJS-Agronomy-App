@@ -203,7 +203,37 @@ export default function SeedingPlan({ data, updateData }: Props) {
           </div>
         ) : filtered.map(entry => (
           <div key={entry.id} className="card hover:shadow-md transition-shadow">
-            <div className="flex items-start justify-between gap-3">
+            <div className="sm:hidden space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-semibold text-green-900">Field {entry.fieldNumber}</div>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">{entry.cropType}</span>
+                    {entry.variety && <span className="text-xs text-gray-500 truncate max-w-[9rem]">{entry.variety}</span>}
+                    {(entry.trialTrack?.points.length ?? 0) > 0 || entry.location?.lat ? <MapPin className="h-3.5 w-3.5 text-green-500" /> : null}
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-1.5">
+                  <button onClick={() => setViewEntry(entry)} className="btn-secondary text-xs py-1.5 px-2">
+                    <Eye className="h-3.5 w-3.5" />
+                  </button>
+                  <button onClick={() => openEdit(entry)} className="btn-secondary text-xs py-1.5 px-2">Edit</button>
+                  <button onClick={() => handleDelete(entry.id)} className="text-red-500 hover:bg-red-50 p-1.5 rounded-md">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="text-xs text-gray-600 grid grid-cols-2 gap-x-2 gap-y-1">
+                <div><span className="text-gray-500">Seeded:</span> {entry.seedingDate}</div>
+                {entry.seedingDirection && <div><span className="text-gray-500">Direction:</span> {entry.seedingDirection}</div>}
+                {entry.seedingRate > 0 && <div className="col-span-2"><span className="text-gray-500">Rate:</span> {entry.seedingRate.toLocaleString()} seeds/ac</div>}
+                {entry.rowSpacing && <div><span className="text-gray-500">{entry.cropType === 'Potatoes' ? 'Seed Spacing' : 'Row'}:</span> {entry.rowSpacing}"</div>}
+                {entry.chemicalMix && <div className="col-span-2 truncate"><span className="text-gray-500">Chemical Mix:</span> {entry.chemicalMix}</div>}
+                {entry.fieldTrials && <div className="col-span-2 truncate"><span className="text-gray-500">Field Trials:</span> {entry.fieldTrials}</div>}
+              </div>
+            </div>
+
+            <div className="hidden sm:flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 mb-1">
                   <span className="font-semibold text-green-900">Field {entry.fieldNumber}</span>
@@ -325,7 +355,7 @@ export default function SeedingPlan({ data, updateData }: Props) {
                     <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50">
                       {seedChemicals.map((chem, idx) => {
                         return (
-                          <div key={idx} className="grid grid-cols-[minmax(0,1fr)_6.5rem_5.25rem_auto] sm:grid-cols-[minmax(14rem,1fr)_11rem_7rem_auto] gap-2 items-center">
+                          <div key={idx} className="grid grid-cols-1 sm:grid-cols-[minmax(14rem,1fr)_11rem_7rem_auto] gap-2 items-center">
                             <select
                               className="form-input w-full"
                               value={chem.name}
@@ -341,28 +371,31 @@ export default function SeedingPlan({ data, updateData }: Props) {
                                 <option key={product} value={product}>{product}</option>
                               ))}
                             </select>
-                            <div className="w-full">
-                              <input
-                                className="form-input w-full"
-                                value={chem.rate}
-                                onChange={e => setSeedChemicals(prev => prev.map((c, i) => i === idx ? { ...c, rate: e.target.value } : c))}
-                                placeholder="Rate"
-                              />
+                            <div className="grid grid-cols-[minmax(0,1fr)_6.25rem_auto] sm:contents gap-2 items-center">
+                              <div className="w-full">
+                                <input
+                                  className="form-input w-full"
+                                  value={chem.rate}
+                                  onChange={e => setSeedChemicals(prev => prev.map((c, i) => i === idx ? { ...c, rate: e.target.value } : c))}
+                                  placeholder="Rate"
+                                />
+                              </div>
+                              <select
+                                className="form-input !w-full shrink-0 px-2"
+                                value={chem.unit}
+                                onChange={e => setSeedChemicals(prev => prev.map((c, i) => i === idx ? { ...c, unit: e.target.value as SeedTreatmentUnit } : c))}
+                              >
+                                {SEED_TREATMENT_UNITS.map(unit => <option key={unit} value={unit}>{unit}</option>)}
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => setSeedChemicals(prev => prev.filter((_, i) => i !== idx))}
+                                className="text-red-500 hover:bg-red-50 p-1.5 rounded justify-self-end sm:justify-self-auto"
+                                aria-label="Remove treatment"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
                             </div>
-                            <select
-                              className="form-input !w-full shrink-0 px-2"
-                              value={chem.unit}
-                              onChange={e => setSeedChemicals(prev => prev.map((c, i) => i === idx ? { ...c, unit: e.target.value as SeedTreatmentUnit } : c))}
-                            >
-                              {SEED_TREATMENT_UNITS.map(unit => <option key={unit} value={unit}>{unit}</option>)}
-                            </select>
-                            <button
-                              type="button"
-                              onClick={() => setSeedChemicals(prev => prev.filter((_, i) => i !== idx))}
-                              className="text-red-500 hover:bg-red-50 p-1.5 rounded"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
                           </div>
                         );
                       })}
@@ -376,7 +409,7 @@ export default function SeedingPlan({ data, updateData }: Props) {
                     </div>
                   </div>
                 )}
-                <div>
+                <div className={form.cropType === 'Potatoes' ? 'col-span-2' : ''}>
                   <label className="form-label">Field Trials</label>
                   <textarea
                     className="form-input resize-none"
