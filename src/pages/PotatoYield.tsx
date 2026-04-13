@@ -174,7 +174,6 @@ export default function PotatoYield({ data, updateData }: Props) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-green-900">Potato Yield Reports</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Sample-based yield estimation — estimated in cwt/ac</p>
         </div>
         <button onClick={openNew} className="btn-primary">
           <Plus className="h-4 w-4" /> New Report
