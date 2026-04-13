@@ -57,7 +57,7 @@ export default function Layout({ data, activeSeason, onSeasonChange, seasonOptio
             <div className="absolute top-2 right-4 sm:static flex items-center gap-2 sm:w-auto">
               <label className="hidden sm:inline text-xs text-green-200">Season</label>
               <select
-                className="h-8 rounded-md bg-green-900 border border-green-600 text-sm px-2 text-white"
+                className="season-select h-8 rounded-md bg-green-900 border border-green-600 text-sm px-2 text-white"
                 value={activeSeason}
                 onChange={e => onSeasonChange(e.target.value)}
                 aria-label="Select season year"
