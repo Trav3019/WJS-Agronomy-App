@@ -310,7 +310,6 @@ export default function FieldSummary({ data }: Props) {
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-green-900">Field Summary</h1>
-        <p className="text-sm text-gray-500 mt-1">Quick overview of your fields and total acreage.</p>
       </div>
 
       <div className="card">
