@@ -1038,15 +1038,15 @@ export default function Scouting({ data, updateData }: Props) {
                             onChange={e => setSprayChemicals(prev => prev.map((c, i) => i === idx ? { ...c, name: e.target.value } : c))}
                             placeholder="Chemical name"
                           />
-                          <div className="w-44 flex gap-2">
+                          <div className="w-32 sm:w-44 flex gap-1 sm:gap-2">
                             <input
-                              className="form-input"
+                              className="form-input min-w-0"
                               value={chem.rate}
                               onChange={e => setSprayChemicals(prev => prev.map((c, i) => i === idx ? { ...c, rate: e.target.value } : c))}
                               placeholder="Rate"
                             />
                             <select
-                              className="form-input w-20"
+                              className="form-input w-14 sm:w-20 px-1.5 sm:px-3 text-xs sm:text-sm"
                               value={chem.rateUnit ?? 'L'}
                               onChange={e => setSprayChemicals(prev => prev.map((c, i) => i === idx ? { ...c, rateUnit: e.target.value } : c))}
                             >
