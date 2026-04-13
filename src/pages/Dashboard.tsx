@@ -190,7 +190,7 @@ export default function Dashboard({ data }: Props) {
 
   return (
     <>
-    <div className="space-y-4 sm:space-y-6">
+    <div className="flex flex-col gap-4 sm:gap-6">
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-green-900">
           Good {getGreeting()}, Welcome to WJ Farm Management
@@ -198,7 +198,7 @@ export default function Dashboard({ data }: Props) {
       </div>
 
       {/* Quick stat row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+      <div className="order-1 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
         <Link to="/tillage" className="card hover:shadow-md transition-all hover:border-green-300 group">
           <div className="flex items-center gap-3">
             <div className="bg-green-100 rounded-lg p-2 group-hover:bg-green-200 transition-colors">
@@ -248,15 +248,15 @@ export default function Dashboard({ data }: Props) {
       </div>
 
       {/* Main grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="order-3 lg:order-2 grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Weather */}
-        <div className="lg:col-span-1 space-y-4">
+        <div className="order-2 lg:order-none lg:col-span-1 space-y-4">
           <WeatherWidget />
           <SoilTemperatureWidget />
         </div>
 
         {/* Right: Alerts + Activity */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="order-1 lg:order-none lg:col-span-2 space-y-4">
           {/* Today's activity */}
           <div className="card lg:h-[25rem] lg:flex lg:flex-col">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -420,7 +420,7 @@ export default function Dashboard({ data }: Props) {
       </div>
 
       {/* Bottom row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="order-2 lg:order-3 grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Upcoming spray plan */}
         <div className="card md:h-[24rem] md:flex md:flex-col">
           <div className="flex items-center justify-between mb-3">
