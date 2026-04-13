@@ -195,7 +195,6 @@ export default function Dashboard({ data }: Props) {
         <h1 className="text-xl sm:text-2xl font-bold text-green-900">
           Good {getGreeting()}, Welcome to WJ Farm Management
         </h1>
-        <p className="text-gray-500 text-xs sm:text-sm mt-1">{format(today, 'EEEE, MMMM d, yyyy')}</p>
       </div>
 
       {/* Quick stat row */}
