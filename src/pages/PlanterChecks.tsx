@@ -4,6 +4,7 @@ import {
   Plus,
   Trash2,
   Eye,
+  ChevronDown,
   AlertCircle,
   CheckCircle2,
   Ruler,
@@ -251,6 +252,7 @@ export default function PlanterChecks({ data, updateData }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [viewCheck, setViewCheck] = useState<PlanterCheck | null>(null);
+  const [expandedViewCheckNumber, setExpandedViewCheckNumber] = useState<number>(0);
   const [activeCheckIndex, setActiveCheckIndex] = useState(0);
   const [form, setForm] = useState(emptyCheck());
 
@@ -398,6 +400,11 @@ export default function PlanterChecks({ data, updateData }: Props) {
     setViewCheck(null);
   }
 
+  function openViewCheck(check: PlanterCheck) {
+    setExpandedViewCheckNumber(0);
+    setViewCheck(check);
+  }
+
   const activeCheck = form.checks[activeCheckIndex] ?? createPasses()[0];
   const rowsPerCheck = CHECK_ROW_COUNT;
   const totalRowsAcrossChecks = rowsPerCheck * form.checks.length;
@@ -450,7 +457,51 @@ export default function PlanterChecks({ data, updateData }: Props) {
 
             return (
               <div key={check.id} className="card hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between gap-4">
+                <div className="sm:hidden space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-green-900">Field {check.fieldNumber}</div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        <span className="rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">{equipment.label}</span>
+                        {fieldCrop && <span className="rounded bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800">{fieldCrop}</span>}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 gap-1.5">
+                      <button onClick={() => openViewCheck(check)} className="btn-secondary text-xs py-1.5 px-2">
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => openEdit(check)} className="btn-secondary text-xs py-1.5 px-2">Edit</button>
+                      <button onClick={() => handleDelete(check.id)} className="rounded-md p-1.5 text-red-500 hover:bg-red-50">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className={`rounded-lg border px-2.5 py-2 ${accuracyTone(summary.accuracyScore)}`}>
+                      <div className="text-[11px] uppercase tracking-wide">Spacing</div>
+                      <div className="text-base font-bold leading-tight">{summary.accuracyScore.toFixed(1)}%</div>
+                    </div>
+                    <div className={`rounded-lg border px-2.5 py-2 ${accuracyTone(depthSummary.accuracyScore)}`}>
+                      <div className="text-[11px] uppercase tracking-wide">Depth</div>
+                      <div className="text-base font-bold leading-tight">{depthSummary.accuracyScore.toFixed(1)}%</div>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-gray-600 grid grid-cols-2 gap-x-2 gap-y-1">
+                    <div><span className="text-gray-500">Date:</span> {check.date}</div>
+                    <div><span className="text-gray-500">Checks:</span> {checksWithData}/3</div>
+                    <div><span className="text-gray-500">Planter:</span> {check.planterName}</div>
+                    <div><span className="text-gray-500">Rows:</span> {CHECK_ROW_COUNT}</div>
+                    <div><span className="text-gray-500">Target:</span> {check.targetSpacingInches.toFixed(1)}&quot;</div>
+                    <div><span className="text-gray-500">Tol:</span> +/- {check.toleranceInches.toFixed(1)}&quot;</div>
+                    {typeof check.targetDepthInches === 'number' && <div><span className="text-gray-500">Depth:</span> {check.targetDepthInches.toFixed(1)}&quot;</div>}
+                    <div><span className="text-gray-500">D/S:</span> {summary.totalDoubles}/{summary.totalSkips}</div>
+                    {check.variety && <div className="col-span-2"><span className="text-gray-500">Variety:</span> {check.variety}</div>}
+                  </div>
+                </div>
+
+                <div className="hidden sm:flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <span className="font-semibold text-green-900">Field {check.fieldNumber}</span>
@@ -494,7 +545,7 @@ export default function PlanterChecks({ data, updateData }: Props) {
                     </div>
                   </div>
                   <div className="flex shrink-0 gap-2">
-                    <button onClick={() => setViewCheck(check)} className="btn-secondary text-xs py-1.5 px-2.5">
+                    <button onClick={() => openViewCheck(check)} className="btn-secondary text-xs py-1.5 px-2.5">
                       <Eye className="h-3.5 w-3.5" /> View
                     </button>
                     <button onClick={() => openEdit(check)} className="btn-secondary text-xs py-1.5 px-2.5">Edit</button>
@@ -952,10 +1003,15 @@ export default function PlanterChecks({ data, updateData }: Props) {
                     {checks.map(checkPass => {
                       const checkSummary = summarizeRows(checkPass.rows, viewCheck.targetSpacingInches, viewCheck.toleranceInches);
                       const depthCheckSummary = summarizeDepthRows(checkPass.rows, viewCheck.targetDepthInches ?? 0, viewCheck.depthToleranceInches ?? 0);
+                      const expanded = expandedViewCheckNumber === checkPass.checkNumber;
                       return (
                         <div key={checkPass.checkNumber} className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <h3 className="text-sm font-semibold text-gray-700">Check {checkPass.checkNumber}</h3>
+                          <button
+                            type="button"
+                            onClick={() => setExpandedViewCheckNumber(expanded ? 0 : checkPass.checkNumber)}
+                            className="w-full flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-left"
+                          >
+                            <div className="text-sm font-semibold text-gray-700">Check {checkPass.checkNumber}</div>
                             <div className="flex items-center gap-2">
                               <span className={`rounded-full px-2 py-0.5 text-xs font-medium border ${accuracyTone(checkSummary.accuracyScore)}`}>
                                 S {checkSummary.accuracyScore.toFixed(1)}%
@@ -963,9 +1019,12 @@ export default function PlanterChecks({ data, updateData }: Props) {
                               <span className={`rounded-full px-2 py-0.5 text-xs font-medium border ${accuracyTone(depthCheckSummary.accuracyScore)}`}>
                                 D {depthCheckSummary.accuracyScore.toFixed(1)}%
                               </span>
+                              <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${expanded ? 'rotate-180' : ''}`} />
                             </div>
-                          </div>
+                          </button>
 
+                          {expanded && (
+                          <>
                           <div className="space-y-2 sm:hidden">
                             {checkPass.rows.map(row => {
                               const spacingDeviation = typeof row.spacingInches === 'number'
@@ -1033,6 +1092,8 @@ export default function PlanterChecks({ data, updateData }: Props) {
                               </tbody>
                             </table>
                           </div>
+                          </>
+                          )}
                         </div>
                       );
                     })}
