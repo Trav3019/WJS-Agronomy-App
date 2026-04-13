@@ -329,7 +329,42 @@ export default function Seeding({ data, updateData }: Props) {
           </div>
         ) : filtered.map(entry => (
           <div key={entry.id} className="card hover:shadow-md transition-shadow">
-            <div className="flex items-start justify-between gap-3">
+            <div className="sm:hidden space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-semibold text-green-900">Field {entry.fieldNumber}</div>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded">{entry.cropType}</span>
+                    {entry.variety && <span className="text-xs text-gray-500 truncate max-w-[9rem]">{entry.variety}</span>}
+                    {entry.location?.lat ? <MapPin className="h-3.5 w-3.5 text-green-500" /> : null}
+                    {entry.weather && <Cloud className="h-3.5 w-3.5 text-blue-500" />}
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-1.5">
+                  <button onClick={() => setViewEntry(entry)} className="btn-secondary text-xs py-1.5 px-2">
+                    <Eye className="h-3.5 w-3.5" />
+                  </button>
+                  <button onClick={() => openEdit(entry)} className="btn-secondary text-xs py-1.5 px-2">Edit</button>
+                  <button onClick={() => handleDelete(entry.id)} className="text-red-500 hover:bg-red-50 p-1.5 rounded-md">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="text-xs text-gray-600 grid grid-cols-2 gap-x-2 gap-y-1">
+                <div><span className="text-gray-500">Seeded:</span> {entry.seedingDate}</div>
+                {entry.rowSpacing && <div><span className="text-gray-500">Row:</span> {entry.rowSpacing}"</div>}
+                {entry.cropType !== 'Potatoes' && entry.seedingRate > 0 && <div className="col-span-2"><span className="text-gray-500">Rate:</span> {entry.seedingRate.toLocaleString()} seeds/ac</div>}
+                {entry.cropType === 'Potatoes' && entry.seedingRateCwtAc !== undefined && <div><span className="text-gray-500">Rate:</span> {entry.seedingRateCwtAc.toFixed(1)} CWT/ac</div>}
+                {entry.cropType === 'Potatoes' && entry.tuberSize && <div><span className="text-gray-500">Tuber:</span> {entry.tuberSize} oz</div>}
+                {entry.cropType === 'Potatoes' && entry.tuberTemp !== undefined && <div><span className="text-gray-500">Tuber Temp:</span> {entry.tuberTemp} C</div>}
+                {entry.cropType === 'Potatoes' && entry.groundTemperature !== undefined && <div><span className="text-gray-500">Ground Temp:</span> {entry.groundTemperature} C</div>}
+                {entry.cropType === 'Potatoes' && entry.seedCutDate && <div><span className="text-gray-500">Cut Date:</span> {entry.seedCutDate}</div>}
+                {entry.fieldTrials && <div className="col-span-2"><span className="text-gray-500">Trials:</span> {entry.fieldTrials}</div>}
+                {entry.weather && <div className="col-span-2 text-blue-600">{entry.weather.temperature?.toFixed(1)}°C, {entry.weather.precipitation.toFixed(1)}mm, {entry.weather.windSpeed.toFixed(0)}km/h</div>}
+              </div>
+            </div>
+
+            <div className="hidden sm:flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 mb-1">
                   <span className="font-semibold text-green-900">Field {entry.fieldNumber}</span>
