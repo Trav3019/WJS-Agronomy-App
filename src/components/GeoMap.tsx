@@ -400,10 +400,10 @@ export default function GeoMap({
   return (
     <div className="space-y-2">
       {!readonly && (
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {effectiveInteractionMode === 'draw' ? (
             <>
-              <span className="text-xs text-gray-600">Draw mode: click map to add points.</span>
+              <span className="basis-full text-xs text-gray-600 sm:basis-auto">Draw mode: click map to add points.</span>
               <button
                 type="button"
                 className="btn-secondary text-xs py-1.5"
@@ -446,7 +446,7 @@ export default function GeoMap({
             </>
           ) : effectiveInteractionMode === 'pin' ? (
             <>
-              <span className="text-xs text-gray-600">Pin mode: click map to drop a pin.</span>
+              <span className="basis-full text-xs text-gray-600 sm:basis-auto">Pin mode: click map to drop a pin.</span>
               <button
                 type="button"
                 className="btn-secondary text-xs py-1.5"
