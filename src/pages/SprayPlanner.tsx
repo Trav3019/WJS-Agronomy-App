@@ -307,7 +307,7 @@ export default function SprayPlanner({ data, updateData }: Props) {
         <select className="form-input w-40" value={listFieldFilter} onChange={e => setListFieldFilter(e.target.value)}>
           <option value="">All Fields</option>
           {listFieldOptions.map(fieldNumber => (
-            <option key={fieldNumber} value={fieldNumber}>Field {fieldNumber}</option>
+            <option key={fieldNumber} value={fieldNumber}>{fieldNumber}</option>
           ))}
         </select>
       </div>
