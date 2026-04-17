@@ -1,0 +1,19 @@
+{
+  "users": [
+    {
+      "username": "admin",
+      "passwordHash": "cb691f9e4747ce927f44e728dd0b9b7e:5c340c510d401c740dd330919810fe2ac63eed19707ce31150414974d9e32cb88ce8b712fe00afa931ab97c4ba39dfef3626d44686cb6369841fd7cb2bf7be0a",
+      "createdAt": "2026-04-17T15:37:28.243Z"
+    },
+    {
+      "username": "testuser_b9bcf8b8",
+      "passwordHash": "e276bc41035308f6c14a3417fad870fd:985fd85a17f6201cdb7fd4d94f312ad0c60055902cb493973c1aeccae631e7d08398212341a52f08629fa43f6c0c4f6d5f0deb4e034a5e954f67985e81e8a704",
+      "createdAt": "2026-04-17T15:37:52.575Z"
+    },
+    {
+      "username": "Travis@siemensfarm.com",
+      "passwordHash": "b3c647ebd84b70bf8db786e2d303a265:325cf5a4ffc14b812acb15be9e7a2955851532fac6860751cd015c696e824482428277fcd30df260fe42add4fbee55b699fdf2030a9fab92d1fe004b829c6617",
+      "createdAt": "2026-04-17T15:44:03.663Z"
+    }
+  ]
+}
