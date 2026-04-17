@@ -160,7 +160,7 @@ export default function Layout({ data, activeSeason, onSeasonChange, seasonOptio
       </main>
 
       <footer className="bg-green-800 text-green-300 text-xs text-center py-3 mt-auto">
-        WJS Agronomy App &copy; {new Date().getFullYear()}
+        WJ Farm Management Software &copy; {new Date().getFullYear()}
       </footer>
     </div>
   );
