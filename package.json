@@ -5,13 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:api": "node server/auth-server.mjs",
     "build": "tsc -b ; vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.21",
+    "cookie-parser": "^1.4.7",
     "date-fns": "^4.1.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.0.1",
     "react": "^19.2.4",
