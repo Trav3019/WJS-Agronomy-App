@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
-  LayoutDashboard, Rows3, ClipboardList, Sprout, Syringe, CalendarDays, Leaf, Tractor, Wheat, FileText, Archive, Menu, X
+  LayoutDashboard, Rows3, ClipboardList, Sprout, Syringe, CalendarDays, Leaf, Tractor, Wheat, FileText, Archive, Menu, X, LogOut
 } from 'lucide-react';
 import type { AppData } from '../types';
 import { exportExcelData, exportFullDataJson } from '../utils/export';
@@ -25,9 +25,10 @@ interface Props {
   activeSeason: string;
   onSeasonChange: (seasonYear: string) => void;
   seasonOptions: string[];
+  onSignOut: () => void;
 }
 
-export default function Layout({ data, activeSeason, onSeasonChange, seasonOptions }: Props) {
+export default function Layout({ data, activeSeason, onSeasonChange, seasonOptions, onSignOut }: Props) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showFarmLogo, setShowFarmLogo] = useState(true);
 
@@ -71,6 +72,13 @@ export default function Layout({ data, activeSeason, onSeasonChange, seasonOptio
               </button>
               <button onClick={() => exportFullDataJson(data)} className="hidden sm:inline-flex px-3 py-1.5 rounded-md bg-green-900 hover:bg-green-950 text-sm font-medium transition-colors">
                 Full JSON
+              </button>
+              <button
+                onClick={onSignOut}
+                className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-red-700 hover:bg-red-800 text-sm font-medium transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign Out
               </button>
             </div>
           </div>
@@ -135,6 +143,13 @@ export default function Layout({ data, activeSeason, onSeasonChange, seasonOptio
                 <span>{label}</span>
               </NavLink>
             ))}
+            <button
+              onClick={onSignOut}
+              className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium text-red-100 hover:bg-red-700 transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Sign Out</span>
+            </button>
           </div>
         )}
       </div>
