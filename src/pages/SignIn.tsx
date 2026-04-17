@@ -35,7 +35,7 @@ export default function SignIn({ onSignIn }: Props) {
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 text-green-700">
               <Leaf className="h-6 w-6" />
             </div>
-            <h1 className="text-2xl font-bold text-green-900">WJS Agronomy</h1>
+            <h1 className="text-2xl font-bold text-green-900">WJ Farm Management Software</h1>
             <p className="mt-1 text-sm text-gray-600">Sign in to continue to your farm dashboard.</p>
           </div>
 
