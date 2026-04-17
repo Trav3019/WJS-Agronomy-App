@@ -108,6 +108,16 @@ select.form-input {
   @apply block text-sm font-medium text-gray-700 mb-1;
 }
 
+.auth-input {
+  padding-left: 2.75rem;
+}
+
+@media (max-width: 640px) {
+  .auth-input {
+    padding-left: 3rem;
+  }
+}
+
 /* Card styles */
 .card {
   @apply bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4;
