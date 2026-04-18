@@ -314,7 +314,7 @@ export default function Seeding({ data, updateData }: Props) {
           <select className="form-input w-full sm:w-40" value={filterFieldNumber} onChange={e => setFilterFieldNumber(e.target.value)}>
             <option value="">All Fields</option>
             {filterFieldOptions.map(fieldNumber => (
-              <option key={fieldNumber} value={fieldNumber}>Field {fieldNumber}</option>
+              <option key={fieldNumber} value={fieldNumber}>{fieldNumber}</option>
             ))}
           </select>
         </div>
