@@ -269,7 +269,7 @@ export default function Harvest({ data, updateData }: Props) {
           <select className="form-input w-full sm:w-40" value={fieldFilter} onChange={e => setFieldFilter(e.target.value)}>
             <option value="">All Fields</option>
             {fieldOptions.map(fieldNumber => (
-              <option key={fieldNumber} value={fieldNumber}>Field {fieldNumber}</option>
+              <option key={fieldNumber} value={fieldNumber}>{fieldNumber}</option>
             ))}
           </select>
         </div>
