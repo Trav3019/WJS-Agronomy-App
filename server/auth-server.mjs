@@ -208,11 +208,19 @@ const startServer = async () => {
   await ensureSeedAdmin();
 
   app.listen(port, () => {
+<<<<<<< HEAD
+=======
+    // eslint-disable-next-line no-console
+>>>>>>> dda3ce3f4854fa44dcc4458e96b4f52948d21801
     console.log(`Auth API running on http://localhost:${port}`);
   });
 };
 
 startServer().catch((error) => {
+<<<<<<< HEAD
+=======
+  // eslint-disable-next-line no-console
+>>>>>>> dda3ce3f4854fa44dcc4458e96b4f52948d21801
   console.error('Failed to start auth server', error);
   process.exit(1);
 });
