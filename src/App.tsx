@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
+import FarmAtGlance from './pages/FarmAtGlance';
 import Fields from './pages/Fields';
 import Scouting from './pages/Scouting';
 import PotatoYield from './pages/PotatoYield';
@@ -158,6 +159,7 @@ function App() {
           }
         >
           <Route index element={<Dashboard data={data} />} />
+          <Route path="farm-at-a-glance" element={<FarmAtGlance data={data} />} />
           <Route path="fields" element={<Fields data={data} updateData={updateData} />} />
           <Route path="scouting" element={<Scouting data={data} updateData={updateData} />} />
           <Route path="potato-yield" element={<PotatoYield data={data} updateData={updateData} />} />
