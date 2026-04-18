@@ -2,6 +2,7 @@
   "users": [
     {
       "username": "admin",
+<<<<<<< HEAD
       "passwordHash": "cb691f9e4747ce927f44e728dd0b9b7e:5c340c510d401c740dd330919810fe2ac63eed19707ce31150414974d9e32cb88ce8b712fe00afa931ab97c4ba39dfef3626d44686cb6369841fd7cb2bf7be0a",
       "createdAt": "2026-04-17T15:37:28.243Z"
     },
@@ -14,6 +15,15 @@
       "username": "Travis@siemensfarm.com",
       "passwordHash": "b3c647ebd84b70bf8db786e2d303a265:325cf5a4ffc14b812acb15be9e7a2955851532fac6860751cd015c696e824482428277fcd30df260fe42add4fbee55b699fdf2030a9fab92d1fe004b829c6617",
       "createdAt": "2026-04-17T15:44:03.663Z"
+=======
+      "passwordHash": "8594be5f617066f64615aeffc740d55f:a8e2e4ee9a184f9bce84ede838500c03c2eecf947c759a8528a6c2ee4ab194a41f78cadb6aa9a5f32e6731fcc268089f78238d4f0ecbb00bdb8ccd3d565c24b0",
+      "createdAt": "2026-04-17T17:24:12.570Z"
+    },
+    {
+      "username": "Travis@siemensfarm.com",
+      "passwordHash": "223d0f7888995368e03b51b466e700f6:3e919378783728bd8a2892a6d7ad6737da9822065f9848e9c9c304ab84c628a8871f9cd06b5fbfc23cb8e61590a7da4429db33036b850f63fdaf9da4b74b623d",
+      "createdAt": "2026-04-17T17:36:27.879Z"
+>>>>>>> dda3ce3f4854fa44dcc4458e96b4f52948d21801
     }
   ]
 }
