@@ -130,7 +130,7 @@ export default function Tillage({ data, updateData }: Props) {
           >
             <option value="">All fields</option>
             {fieldOptions.map(fieldNumber => (
-              <option key={fieldNumber} value={fieldNumber}>Field {fieldNumber}</option>
+              <option key={fieldNumber} value={fieldNumber}>{fieldNumber}</option>
             ))}
           </select>
           <select
