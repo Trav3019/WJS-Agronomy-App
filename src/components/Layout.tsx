@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
-  LayoutDashboard, Rows3, ClipboardList, Sprout, Syringe, CalendarDays, Leaf, Tractor, Wheat, FileText, Archive, Menu, X, LogOut
+  LayoutDashboard, BarChart3, Rows3, ClipboardList, Sprout, Syringe, CalendarDays, Leaf, Tractor, Wheat, FileText, Archive, Menu, X, LogOut
 } from 'lucide-react';
 import type { AppData } from '../types';
 import { exportExcelData, exportFullDataJson } from '../utils/export';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/farm-at-a-glance', label: 'Farm at a Glance', icon: BarChart3 },
   { to: '/tillage', label: 'Tillage', icon: Tractor },
   { to: '/seeding', label: 'Seeding', icon: CalendarDays },
   { to: '/scouting', label: 'Scouting', icon: ClipboardList },
