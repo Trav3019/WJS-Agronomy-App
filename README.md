@@ -22,7 +22,10 @@ Copy `.env.api.example` values into your `.env.local` (or environment) and set s
 
 ## Auth Endpoints
 
+<<<<<<< HEAD
 - `POST /api/auth/signup`
+=======
+>>>>>>> dda3ce3f4854fa44dcc4458e96b4f52948d21801
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
