@@ -186,7 +186,7 @@ export default function PotatoYield({ data, updateData }: Props) {
           <select className="form-input w-full sm:w-40" value={filterField} onChange={e => setFilterField(e.target.value)}>
             <option value="">All Fields</option>
             {filterFieldOptions.map(fieldNumber => (
-              <option key={fieldNumber} value={fieldNumber}>Field {fieldNumber}</option>
+              <option key={fieldNumber} value={fieldNumber}>{fieldNumber}</option>
             ))}
           </select>
           <select className="form-input w-full sm:w-48" value={filterVariety} onChange={e => setFilterVariety(e.target.value)}>
