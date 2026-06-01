@@ -1,24 +1,27 @@
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
-  LayoutDashboard, BarChart3, Rows3, ClipboardList, Sprout, Syringe, CalendarDays, Leaf, Tractor, Wheat, FileText, Archive, Menu, X, LogOut
+  LayoutDashboard, BarChart3, Rows3, ClipboardList, Sprout, Syringe, CalendarDays, Leaf, Tractor, Wheat, FileText, Archive, Menu, X, LogOut, ShieldCheck
 } from 'lucide-react';
+import { canView } from '../access';
+import type { AuthUser, AppPageKey } from '../access';
 import type { AppData } from '../types';
 import { exportExcelData, exportFullDataJson } from '../utils/export';
 
-const navItems = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/farm-at-a-glance', label: 'Farm at a Glance', icon: BarChart3 },
-  { to: '/tillage', label: 'Tillage', icon: Tractor },
-  { to: '/seeding', label: 'Seeding', icon: CalendarDays },
-  { to: '/scouting', label: 'Scouting', icon: ClipboardList },
-  { to: '/spray', label: 'Spray Plan', icon: Syringe },
-  { to: '/potato-yield', label: 'Potato Yield', icon: Sprout },
-  { to: '/harvest', label: 'Harvest', icon: Wheat },
-  { to: '/potato-storage', label: 'Potato Storage', icon: Archive },
-  { to: '/field-summary', label: 'Field Summary', icon: FileText },
-  { to: '/seeding-plan', label: 'Seeding Plan', icon: CalendarDays, end: true },
-  { to: '/fields', label: 'Fields', icon: Rows3 },
+const navItems: Array<{ to: string; label: string; icon: typeof LayoutDashboard; end?: boolean; pageKey?: AppPageKey; adminOnly?: boolean }> = [
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true, pageKey: 'dashboard' },
+  { to: '/farm-at-a-glance', label: 'Farm at a Glance', icon: BarChart3, pageKey: 'farmAtGlance' },
+  { to: '/tillage', label: 'Tillage', icon: Tractor, pageKey: 'tillage' },
+  { to: '/seeding', label: 'Seeding', icon: CalendarDays, pageKey: 'seeding' },
+  { to: '/scouting', label: 'Scouting', icon: ClipboardList, pageKey: 'scouting' },
+  { to: '/spray', label: 'Spray Plan', icon: Syringe, pageKey: 'spray' },
+  { to: '/potato-yield', label: 'Potato Yield', icon: Sprout, pageKey: 'potatoYield' },
+  { to: '/harvest', label: 'Harvest', icon: Wheat, pageKey: 'harvest' },
+  { to: '/potato-storage', label: 'Potato Storage', icon: Archive, pageKey: 'potatoStorage' },
+  { to: '/field-summary', label: 'Field Summary', icon: FileText, pageKey: 'fieldSummary' },
+  { to: '/seeding-plan', label: 'Seeding Plan', icon: CalendarDays, end: true, pageKey: 'seedingPlan' },
+  { to: '/fields', label: 'Fields', icon: Rows3, pageKey: 'fields', adminOnly: true },
+  { to: '/user-access', label: 'User Access', icon: ShieldCheck, adminOnly: true },
 ];
 
 interface Props {
@@ -27,13 +30,26 @@ interface Props {
   onSeasonChange: (seasonYear: string) => void;
   seasonOptions: string[];
   onSignOut: () => void;
+  currentUser: AuthUser;
 }
 
-export default function Layout({ data, activeSeason, onSeasonChange, seasonOptions, onSignOut }: Props) {
+export default function Layout({ data, activeSeason, onSeasonChange, seasonOptions, onSignOut, currentUser }: Props) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showFarmLogo, setShowFarmLogo] = useState(true);
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
+  const isAdmin = currentUser.isAdmin;
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.adminOnly) {
+      return isAdmin;
+    }
+
+    if (!item.pageKey) {
+      return true;
+    }
+
+    return canView(currentUser.permissions[item.pageKey]);
+  });
 
   return (
     <div className="flex flex-col min-h-screen bg-green-50">
@@ -90,7 +106,7 @@ export default function Layout({ data, activeSeason, onSeasonChange, seasonOptio
       <nav className="hidden md:block bg-green-700 text-white shadow-md sticky top-14 z-40">
         <div className="max-w-7xl mx-auto px-2">
           <div className="flex overflow-x-auto">
-            {navItems.map(({ to, label, icon: Icon, end }) => (
+            {visibleNavItems.map(({ to, label, icon: Icon, end }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -126,7 +142,7 @@ export default function Layout({ data, activeSeason, onSeasonChange, seasonOptio
 
         {mobileMenuOpen && (
           <div className="border-t border-green-600 bg-green-700 max-h-96 overflow-y-auto">
-            {navItems.map(({ to, label, icon: Icon, end }) => (
+            {visibleNavItems.map(({ to, label, icon: Icon, end }) => (
               <NavLink
                 key={to}
                 to={to}
