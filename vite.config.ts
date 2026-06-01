@@ -12,6 +12,10 @@ export default defineConfig({
         target: 'http://localhost:8787',
         changeOrigin: true,
       },
+      '/api/admin': {
+        target: 'http://localhost:8787',
+        changeOrigin: true,
+      },
       '/api/mbagweather': {
         target: 'https://mbagweather.ca',
         changeOrigin: true,
