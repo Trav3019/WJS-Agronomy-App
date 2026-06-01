@@ -135,3 +135,12 @@ select.form-input {
 .btn-danger {
   @apply inline-flex items-center gap-2 px-4 py-2.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors shadow-sm;
 }
+
+.read-only-page button,
+.read-only-page input,
+.read-only-page select,
+.read-only-page textarea,
+.read-only-page [role='button'] {
+  pointer-events: none;
+  opacity: 0.65;
+}
