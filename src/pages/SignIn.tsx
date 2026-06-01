@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Leaf, Lock, UserRound } from 'lucide-react';
 
 interface Props {
-  onSignIn: (username: string, password: string, rememberMe: boolean) => Promise<boolean>;
+  onSignIn: (username: string, password: string, rememberMe: boolean) => Promise<{ success: boolean; message?: string }>;
 }
 
 export default function SignIn({ onSignIn }: Props) {
@@ -19,11 +19,11 @@ export default function SignIn({ onSignIn }: Props) {
     setError('');
     setIsSubmitting(true);
 
-    const success = await onSignIn(username, password, rememberMe);
+    const result = await onSignIn(username, password, rememberMe);
     setIsSubmitting(false);
 
-    if (!success) {
-      setError('Sign in failed. Check your credentials and try again.');
+    if (!result.success) {
+      setError(result.message || 'Sign in failed. Check your credentials and try again.');
     }
   };
 
