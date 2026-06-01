@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Leaf, Lock, UserRound } from 'lucide-react';
 
 interface Props {
-  onSignUp: (username: string, password: string, rememberMe: boolean) => Promise<boolean>;
+  onSignUp: (username: string, password: string, rememberMe: boolean) => Promise<{ success: boolean; message?: string }>;
 }
 
 export default function SignUp({ onSignUp }: Props) {
@@ -13,11 +13,13 @@ export default function SignUp({ onSignUp }: Props) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');
+    setSuccessMessage('');
 
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
@@ -30,12 +32,18 @@ export default function SignUp({ onSignUp }: Props) {
     }
 
     setIsSubmitting(true);
-    const success = await onSignUp(username, password, rememberMe);
+    const result = await onSignUp(username, password, rememberMe);
     setIsSubmitting(false);
 
-    if (!success) {
-      setError('Could not create account. Username may already be in use.');
+    if (!result.success) {
+      setError(result.message || 'Could not create account. Username may already be in use.');
+      return;
     }
+
+    setSuccessMessage(result.message || 'Account request submitted. An admin must approve your access before you can sign in.');
+    setUsername('');
+    setPassword('');
+    setConfirmPassword('');
   };
 
   return (
@@ -47,7 +55,7 @@ export default function SignUp({ onSignUp }: Props) {
               <Leaf className="h-6 w-6" />
             </div>
             <h1 className="text-2xl font-bold text-green-900">Create Account</h1>
-            <p className="mt-1 text-sm text-gray-600">Sign up for access to the farm dashboard.</p>
+            <p className="mt-1 text-sm text-gray-600">Sign up for access to the farm dashboard. New accounts require admin approval.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
@@ -126,8 +134,12 @@ export default function SignUp({ onSignUp }: Props) {
               <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
             )}
 
+            {successMessage && (
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{successMessage}</div>
+            )}
+
             <button type="submit" className="btn-primary w-full justify-center" disabled={isSubmitting}>
-              {isSubmitting ? 'Creating Account...' : 'Create Account'}
+              {isSubmitting ? 'Submitting Request...' : 'Request Access'}
             </button>
           </form>
 
