@@ -18,10 +18,75 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const usersFilePath = path.join(__dirname, 'users.json');
 
+const pageKeys = [
+  'dashboard',
+  'farmAtGlance',
+  'tillage',
+  'seeding',
+  'planterChecks',
+  'scouting',
+  'spray',
+  'potatoYield',
+  'harvest',
+  'potatoStorage',
+  'fieldSummary',
+  'seedingPlan',
+  'fields',
+];
+
+const createPermissions = (mode) => Object.fromEntries(pageKeys.map((key) => [key, mode]));
+const fullEditPermissions = createPermissions('edit');
+const defaultApprovedPermissions = {
+  ...createPermissions('none'),
+  dashboard: 'view',
+  farmAtGlance: 'view',
+};
+
 app.use(express.json());
 app.use(cookieParser());
 
 const normalizeUsername = (value) => value.trim().toLowerCase();
+
+const normalizePermissions = (permissions, fallbackPermissions) => {
+  const source = permissions && typeof permissions === 'object' ? permissions : {};
+  return Object.fromEntries(
+    pageKeys.map((key) => {
+      const raw = source[key];
+      if (raw === 'none' || raw === 'view' || raw === 'edit') {
+        return [key, raw];
+      }
+      return [key, fallbackPermissions[key] ?? 'none'];
+    }),
+  );
+};
+
+const normalizeUser = (user) => {
+  const normalizedUsername = String(user?.username || '').trim();
+  const isAdmin = normalizeUsername(normalizedUsername) === normalizeUsername(authUsername) || Boolean(user?.isAdmin);
+  const hasExplicitPermissions = user?.permissions && typeof user.permissions === 'object';
+  const fallbackPermissions = isAdmin
+    ? fullEditPermissions
+    : hasExplicitPermissions
+      ? defaultApprovedPermissions
+      : fullEditPermissions;
+
+  return {
+    username: normalizedUsername,
+    passwordHash: String(user?.passwordHash || ''),
+    createdAt: user?.createdAt || new Date().toISOString(),
+    status: user?.status === 'pending' ? 'pending' : 'approved',
+    isAdmin,
+    permissions: normalizePermissions(user?.permissions, fallbackPermissions),
+  };
+};
+
+const toPublicUser = (user) => ({
+  username: user.username,
+  createdAt: user.createdAt,
+  status: user.status,
+  isAdmin: user.isAdmin,
+  permissions: user.permissions,
+});
 
 const hashPassword = (password) => {
   const salt = randomBytes(16).toString('hex');
@@ -48,7 +113,7 @@ const readUsers = async () => {
   try {
     const raw = await fs.readFile(usersFilePath, 'utf8');
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed.users) ? parsed.users : [];
+    return Array.isArray(parsed.users) ? parsed.users.map(normalizeUser) : [];
   } catch (error) {
     if (error && error.code === 'ENOENT') {
       return [];
@@ -58,7 +123,7 @@ const readUsers = async () => {
 };
 
 const writeUsers = async (users) => {
-  await fs.writeFile(usersFilePath, JSON.stringify({ users }, null, 2));
+  await fs.writeFile(usersFilePath, JSON.stringify({ users: users.map(normalizeUser) }, null, 2));
 };
 
 const ensureSeedAdmin = async () => {
@@ -74,13 +139,16 @@ const ensureSeedAdmin = async () => {
     username: authUsername,
     passwordHash: hashPassword(authPassword),
     createdAt: new Date().toISOString(),
+    status: 'approved',
+    isAdmin: true,
+    permissions: fullEditPermissions,
   });
   await writeUsers(users);
 };
 
-const issueToken = (username, rememberMe) => {
+const issueToken = (user, rememberMe) => {
   const expiresIn = rememberMe ? '14d' : '8h';
-  return jwt.sign({ username }, jwtSecret, { expiresIn });
+  return jwt.sign({ username: user.username, isAdmin: user.isAdmin }, jwtSecret, { expiresIn });
 };
 
 const getCookieOptions = (rememberMe) => ({
@@ -107,6 +175,19 @@ const requireAuth = (req, res, next) => {
   }
 };
 
+const requireAdmin = async (req, res, next) => {
+  const requestedUsername = normalizeUsername(req.user?.username || '');
+  const users = await readUsers();
+  const existingUser = users.find((user) => normalizeUsername(user.username) === requestedUsername);
+
+  if (!existingUser || !existingUser.isAdmin) {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+
+  req.currentUser = existingUser;
+  return next();
+};
+
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
 });
@@ -128,15 +209,17 @@ app.post('/api/auth/login', (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+    if (existingUser.status !== 'approved') {
+      return res.status(403).json({ code: 'pending_approval', message: 'Your account is pending admin approval.' });
+    }
+
     const persistent = Boolean(rememberMe);
-    const token = issueToken(existingUser.username, persistent);
+    const token = issueToken(existingUser, persistent);
     res.cookie(cookieName, token, getCookieOptions(persistent));
 
     return res.json({
       authenticated: true,
-      user: {
-        username: existingUser.username,
-      },
+      user: toPublicUser(existingUser),
     });
   };
 
@@ -172,18 +255,16 @@ app.post('/api/auth/signup', (req, res) => {
       username: trimmedUsername,
       passwordHash: hashPassword(password),
       createdAt: new Date().toISOString(),
+      status: 'pending',
+      isAdmin: false,
+      permissions: defaultApprovedPermissions,
     });
     await writeUsers(users);
 
-    const persistent = Boolean(rememberMe);
-    const token = issueToken(trimmedUsername, persistent);
-    res.cookie(cookieName, token, getCookieOptions(persistent));
-
     return res.status(201).json({
-      authenticated: true,
-      user: {
-        username: trimmedUsername,
-      },
+      authenticated: false,
+      requiresApproval: true,
+      message: 'Account request submitted. An admin must approve your access before you can sign in.',
     });
   };
 
@@ -196,31 +277,91 @@ app.post('/api/auth/logout', (_req, res) => {
 });
 
 app.get('/api/auth/me', requireAuth, (req, res) => {
-  return res.json({
-    authenticated: true,
-    user: {
-      username: req.user.username,
-    },
-  });
+  const proceed = async () => {
+    const users = await readUsers();
+    const existingUser = users.find((user) => normalizeUsername(user.username) === normalizeUsername(req.user.username));
+
+    if (!existingUser || existingUser.status !== 'approved') {
+      res.clearCookie(cookieName, { path: '/' });
+      return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    return res.json({
+      authenticated: true,
+      user: toPublicUser(existingUser),
+    });
+  };
+
+  proceed().catch(() => res.status(500).json({ message: 'Unable to verify session right now' }));
+});
+
+app.get('/api/admin/users', requireAuth, (req, res) => {
+  const proceed = async () => {
+    const users = await readUsers();
+    const currentUser = users.find((user) => normalizeUsername(user.username) === normalizeUsername(req.user.username));
+
+    if (!currentUser?.isAdmin) {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    return res.json({
+      users: users
+        .map(toPublicUser)
+        .sort((left, right) => left.username.localeCompare(right.username, undefined, { sensitivity: 'base' })),
+    });
+  };
+
+  proceed().catch(() => res.status(500).json({ message: 'Unable to load users right now' }));
+});
+
+app.patch('/api/admin/users/:username', requireAuth, (req, res) => {
+  const proceed = async () => {
+    const users = await readUsers();
+    const currentUser = users.find((user) => normalizeUsername(user.username) === normalizeUsername(req.user.username));
+
+    if (!currentUser?.isAdmin) {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
+    const requestedUsername = normalizeUsername(decodeURIComponent(req.params.username || ''));
+    const userIndex = users.findIndex((user) => normalizeUsername(user.username) === requestedUsername);
+
+    if (userIndex < 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const targetUser = users[userIndex];
+    if (targetUser.isAdmin) {
+      return res.status(400).json({ message: 'Admin account cannot be edited here' });
+    }
+
+    const nextStatus = req.body?.status === 'pending' ? 'pending' : 'approved';
+    const nextPermissions = normalizePermissions(req.body?.permissions, targetUser.permissions || defaultApprovedPermissions);
+
+    const nextUser = normalizeUser({
+      ...targetUser,
+      status: nextStatus,
+      permissions: nextPermissions,
+    });
+
+    users[userIndex] = nextUser;
+    await writeUsers(users);
+
+    return res.json({ user: toPublicUser(nextUser) });
+  };
+
+  proceed().catch(() => res.status(500).json({ message: 'Unable to update user right now' }));
 });
 
 const startServer = async () => {
   await ensureSeedAdmin();
 
   app.listen(port, () => {
-<<<<<<< HEAD
-=======
-    // eslint-disable-next-line no-console
->>>>>>> dda3ce3f4854fa44dcc4458e96b4f52948d21801
     console.log(`Auth API running on http://localhost:${port}`);
   });
 };
 
 startServer().catch((error) => {
-<<<<<<< HEAD
-=======
-  // eslint-disable-next-line no-console
->>>>>>> dda3ce3f4854fa44dcc4458e96b4f52948d21801
   console.error('Failed to start auth server', error);
   process.exit(1);
 });
