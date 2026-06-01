@@ -7,7 +7,7 @@ import {
   ClipboardList, Syringe, Sprout, Wrench, CalendarDays, Wheat,
   ChevronRight, X, Ruler
 } from 'lucide-react';
-import { format, subDays, isWithinInterval, parseISO } from 'date-fns';
+import { subDays, isWithinInterval, parseISO } from 'date-fns';
 
 interface Props {
   data: AppData;
